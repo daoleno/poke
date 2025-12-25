@@ -1,0 +1,52 @@
+[package]
+name = "poke"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# === Async Runtime ===
+tokio = { version = "1.42", features = ["rt-multi-thread", "sync", "time", "macros"] }
+futures = "0.3"
+
+# === Alloy Core ===
+alloy = { version = "1.2", features = [
+    "provider-http",
+    "provider-ws",
+    "provider-ipc",
+    "rpc-types-eth",
+    "rpc-types-trace",
+    "network",
+    "contract",
+    "pubsub",
+] }
+alloy-primitives = "1.5"
+alloy-dyn-abi = "1.5"
+alloy-json-abi = "1.5"
+alloy-sol-types = "1.5"
+
+# === OP Stack (Optimism/Base) Support ===
+op-alloy = { version = "0.23", features = ["rpc-types"] }
+
+# === TUI ===
+ratatui = "0.26"
+crossterm = "0.27"
+
+# === Utilities ===
+anyhow = "1.0"
+async-trait = "0.1"
+thiserror = "2.0"
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+hex = "0.4"
+
+# === Storage ===
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# === HTTP Client (for 4byte/Sourcify API) ===
+reqwest = { version = "0.12", features = ["json"] }
+
+# === File/Path ===
+directories = "5.0"
+walkdir = "2.5"
