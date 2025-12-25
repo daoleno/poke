@@ -284,7 +284,18 @@ fn pump_background(
                 selector,
                 name,
                 signature,
-            } => app.apply_signature(selector, name, signature),
+            } => {
+                // Debug: Log event receipt
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/poke-abi-debug.log")
+                {
+                    use std::io::Write;
+                    let _ = writeln!(f, "[MAIN] Received SignatureResolved for {}: {} ({})", selector, name, signature);
+                }
+                app.apply_signature(selector, name, signature);
+            }
             RuntimeEvent::AbiResolved { .. } => {
                 // TODO: integrate full ABI into registry for better decoding
             }

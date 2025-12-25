@@ -35,10 +35,8 @@ pub async fn run_async_worker(
     let mut block_subscription: Option<tokio::sync::mpsc::Receiver<Block>> = None;
 
     // ABI resolver for 4byte and Sourcify lookups
+    // The resolver has internal caching, so we don't need to track pending selectors
     let resolver = Arc::new(AbiResolver::new());
-
-    // Track selectors we've already queued for resolution
-    let mut pending_selectors: HashSet<String> = HashSet::new();
 
     // Polling interval for HTTP endpoints
     let mut poll_interval = interval(Duration::from_millis(500));
@@ -61,7 +59,6 @@ pub async fn run_async_worker(
                                 head,
                                 &evt_tx,
                                 &resolver,
-                                &mut pending_selectors,
                             )
                             .await;
                             last_block = Some(head);
@@ -114,7 +111,6 @@ pub async fn run_async_worker(
                                 head,
                                 &evt_tx,
                                 &resolver,
-                                &mut pending_selectors,
                             )
                             .await;
                             last_block = Some(head);
@@ -205,24 +201,22 @@ pub async fn run_async_worker(
 
                 RuntimeCommand::ResolveSelector { selector } => {
                     // Resolve selector via 4byte API
-                    if !pending_selectors.contains(&selector) {
-                        pending_selectors.insert(selector.clone());
-                        let resolver = Arc::clone(&resolver);
-                        let evt_tx = evt_tx.clone();
-                        let sel = selector.clone();
-                        tokio::spawn(async move {
-                            if let Ok(selector_bytes) = parse_selector(&sel) {
-                                if let Ok(Some(sig)) = resolver.lookup_selector(selector_bytes).await
-                                {
-                                    let _ = evt_tx.send(RuntimeEvent::SignatureResolved {
-                                        selector: sel,
-                                        name: sig.name,
-                                        signature: sig.signature,
-                                    });
-                                }
+                    // The resolver has internal caching to avoid duplicate API calls
+                    let resolver = Arc::clone(&resolver);
+                    let evt_tx = evt_tx.clone();
+                    let sel = selector.clone();
+                    tokio::spawn(async move {
+                        if let Ok(selector_bytes) = parse_selector(&sel) {
+                            if let Ok(Some(sig)) = resolver.lookup_selector(selector_bytes).await
+                            {
+                                let _ = evt_tx.send(RuntimeEvent::SignatureResolved {
+                                    selector: sel,
+                                    name: sig.name,
+                                    signature: sig.signature,
+                                });
                             }
-                        });
-                    }
+                        }
+                    });
                 }
 
                 RuntimeCommand::ResolveAbi { chain_id, address } => {
@@ -257,25 +251,70 @@ pub async fn run_async_worker(
                         let _ = evt_tx.send(RuntimeEvent::NewBlock { block: block_info, txs });
 
                         // Auto-resolve any new selectors
+                        // Debug: Log collected selectors
+                        if !selectors.is_empty() {
+                            if let Ok(mut f) = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open("/tmp/poke-abi-debug.log")
+                            {
+                                use std::io::Write;
+                                let _ = writeln!(f, "[WORKER] Block {} has {} selectors: {:?}", block_number, selectors.len(), selectors);
+                            }
+                        }
+
                         for selector in selectors {
-                            if !pending_selectors.contains(&selector) {
-                                pending_selectors.insert(selector.clone());
-                                let resolver = Arc::clone(&resolver);
-                                let evt_tx = evt_tx.clone();
-                                tokio::spawn(async move {
-                                    if let Ok(sel_bytes) = parse_selector(&selector) {
-                                        if let Ok(Some(sig)) =
-                                            resolver.lookup_selector(sel_bytes).await
-                                        {
-                                            let _ = evt_tx.send(RuntimeEvent::SignatureResolved {
-                                                selector,
-                                                name: sig.name,
-                                                signature: sig.signature,
-                                            });
+                            // The resolver has internal caching to avoid duplicate API calls
+                            let resolver = Arc::clone(&resolver);
+                            let evt_tx = evt_tx.clone();
+                            let sel_for_log = selector.clone();
+                            tokio::spawn(async move {
+                                match parse_selector(&selector) {
+                                    Ok(sel_bytes) => {
+                                        match resolver.lookup_selector(sel_bytes).await {
+                                            Ok(Some(sig)) => {
+                                                // Debug: Log event send
+                                                if let Ok(mut f) = std::fs::OpenOptions::new()
+                                                    .create(true)
+                                                    .append(true)
+                                                    .open("/tmp/poke-abi-debug.log")
+                                                {
+                                                    use std::io::Write;
+                                                    let _ = writeln!(f, "[WORKER-WS] Resolved {}: {}", sel_for_log, sig.signature);
+                                                }
+                                                let _ = evt_tx.send(RuntimeEvent::SignatureResolved {
+                                                    selector,
+                                                    name: sig.name,
+                                                    signature: sig.signature,
+                                                });
+                                            }
+                                            Ok(None) => {
+                                                // No signature found (common for custom contracts)
+                                            }
+                                            Err(e) => {
+                                                if let Ok(mut f) = std::fs::OpenOptions::new()
+                                                    .create(true)
+                                                    .append(true)
+                                                    .open("/tmp/poke-abi-debug.log")
+                                                {
+                                                    use std::io::Write;
+                                                    let _ = writeln!(f, "[WORKER-WS] Error resolving {}: {:?}", sel_for_log, e);
+                                                }
+                                            }
                                         }
                                     }
-                                });
-                            }
+                                    Err(e) => {
+                                        if let Ok(mut f) = std::fs::OpenOptions::new()
+                                            .create(true)
+                                            .append(true)
+                                            .open("/tmp/poke-abi-debug.log")
+                                        {
+                                            use std::io::Write;
+                                            let _ = writeln!(f, "[WORKER-WS] Parse error for {}: {:?}", sel_for_log, e);
+                                        }
+                                    }
+                                }
+                            });
                         }
                         last_block = Some(block_number);
                     }
@@ -300,29 +339,70 @@ pub async fn run_async_worker(
                                             txs,
                                         });
 
-                                        // Auto-resolve any new selectors
+                                        // Auto-resolve any new selectors (HTTP polling path)
+                                        if !selectors.is_empty() {
+                                            if let Ok(mut f) = std::fs::OpenOptions::new()
+                                                .create(true)
+                                                .append(true)
+                                                .open("/tmp/poke-abi-debug.log")
+                                            {
+                                                use std::io::Write;
+                                                let _ = writeln!(f, "[WORKER-HTTP] Block {} has {} selectors: {:?}", number, selectors.len(), selectors);
+                                            }
+                                        }
+
                                         for selector in selectors {
-                                            if !pending_selectors.contains(&selector) {
-                                                pending_selectors.insert(selector.clone());
-                                                let resolver = Arc::clone(&resolver);
-                                                let evt_tx = evt_tx.clone();
-                                                tokio::spawn(async move {
-                                                    if let Ok(sel_bytes) = parse_selector(&selector)
-                                                    {
-                                                        if let Ok(Some(sig)) =
-                                                            resolver.lookup_selector(sel_bytes).await
-                                                        {
-                                                            let _ = evt_tx.send(
-                                                                RuntimeEvent::SignatureResolved {
-                                                                    selector,
-                                                                    name: sig.name,
-                                                                    signature: sig.signature,
-                                                                },
-                                                            );
+                                            // The resolver has internal caching to avoid duplicate API calls
+                                            let resolver = Arc::clone(&resolver);
+                                            let evt_tx = evt_tx.clone();
+                                            let sel_for_log = selector.clone();
+                                            tokio::spawn(async move {
+                                                match parse_selector(&selector) {
+                                                    Ok(sel_bytes) => {
+                                                        match resolver.lookup_selector(sel_bytes).await {
+                                                            Ok(Some(sig)) => {
+                                                                // Debug log
+                                                                if let Ok(mut f) = std::fs::OpenOptions::new()
+                                                                    .create(true)
+                                                                    .append(true)
+                                                                    .open("/tmp/poke-abi-debug.log")
+                                                                {
+                                                                    use std::io::Write;
+                                                                    let _ = writeln!(f, "[WORKER-HTTP] Resolved {}: {}", sel_for_log, sig.signature);
+                                                                }
+                                                                let _ = evt_tx.send(
+                                                                    RuntimeEvent::SignatureResolved {
+                                                                        selector,
+                                                                        name: sig.name,
+                                                                        signature: sig.signature,
+                                                                    },
+                                                                );
+                                                            }
+                                                            Ok(None) => {}
+                                                            Err(e) => {
+                                                                if let Ok(mut f) = std::fs::OpenOptions::new()
+                                                                    .create(true)
+                                                                    .append(true)
+                                                                    .open("/tmp/poke-abi-debug.log")
+                                                                {
+                                                                    use std::io::Write;
+                                                                    let _ = writeln!(f, "[WORKER-HTTP] Error resolving {}: {:?}", sel_for_log, e);
+                                                                }
+                                                            }
                                                         }
                                                     }
-                                                });
-                                            }
+                                                    Err(e) => {
+                                                        if let Ok(mut f) = std::fs::OpenOptions::new()
+                                                            .create(true)
+                                                            .append(true)
+                                                            .open("/tmp/poke-abi-debug.log")
+                                                        {
+                                                            use std::io::Write;
+                                                            let _ = writeln!(f, "[WORKER-HTTP] Parse error for {}: {:?}", sel_for_log, e);
+                                                        }
+                                                    }
+                                                }
+                                            });
                                         }
                                     }
                                 }
@@ -425,7 +505,6 @@ async fn fetch_snapshot(
     head: u64,
     evt_tx: &Sender<RuntimeEvent>,
     resolver: &Arc<AbiResolver>,
-    pending_selectors: &mut HashSet<String>,
 ) {
     let start = head.saturating_sub(10);
     for number in start..=head {
@@ -433,24 +512,68 @@ async fn fetch_snapshot(
             let (block_info, txs, selectors) = process_block(provider, &block).await;
             let _ = evt_tx.send(RuntimeEvent::NewBlock { block: block_info, txs });
 
-            // Auto-resolve any new selectors
+            // Auto-resolve any new selectors (fetch_snapshot path)
+            if !selectors.is_empty() {
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/poke-abi-debug.log")
+                {
+                    use std::io::Write;
+                    let _ = writeln!(f, "[SNAPSHOT] Block {} has {} selectors: {:?}", number, selectors.len(), selectors);
+                }
+            }
+
             for selector in selectors {
-                if !pending_selectors.contains(&selector) {
-                    pending_selectors.insert(selector.clone());
-                    let resolver = Arc::clone(resolver);
-                    let evt_tx = evt_tx.clone();
-                    tokio::spawn(async move {
-                        if let Ok(sel_bytes) = parse_selector(&selector) {
-                            if let Ok(Some(sig)) = resolver.lookup_selector(sel_bytes).await {
-                                let _ = evt_tx.send(RuntimeEvent::SignatureResolved {
-                                    selector,
-                                    name: sig.name,
-                                    signature: sig.signature,
-                                });
+                // The resolver has internal caching to avoid duplicate API calls
+                let resolver = Arc::clone(resolver);
+                let evt_tx = evt_tx.clone();
+                let sel_for_log = selector.clone();
+                tokio::spawn(async move {
+                    match parse_selector(&selector) {
+                        Ok(sel_bytes) => {
+                            match resolver.lookup_selector(sel_bytes).await {
+                                Ok(Some(sig)) => {
+                                    // Debug log
+                                    if let Ok(mut f) = std::fs::OpenOptions::new()
+                                        .create(true)
+                                        .append(true)
+                                        .open("/tmp/poke-abi-debug.log")
+                                    {
+                                        use std::io::Write;
+                                        let _ = writeln!(f, "[SNAPSHOT] Resolved {}: {}", sel_for_log, sig.signature);
+                                    }
+                                    let _ = evt_tx.send(RuntimeEvent::SignatureResolved {
+                                        selector,
+                                        name: sig.name,
+                                        signature: sig.signature,
+                                    });
+                                }
+                                Ok(None) => {}
+                                Err(e) => {
+                                    if let Ok(mut f) = std::fs::OpenOptions::new()
+                                        .create(true)
+                                        .append(true)
+                                        .open("/tmp/poke-abi-debug.log")
+                                    {
+                                        use std::io::Write;
+                                        let _ = writeln!(f, "[SNAPSHOT] Error resolving {}: {:?}", sel_for_log, e);
+                                    }
+                                }
                             }
                         }
-                    });
-                }
+                        Err(e) => {
+                            if let Ok(mut f) = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open("/tmp/poke-abi-debug.log")
+                            {
+                                use std::io::Write;
+                                let _ = writeln!(f, "[SNAPSHOT] Parse error for {}: {:?}", sel_for_log, e);
+                            }
+                        }
+                    }
+                });
             }
         }
     }

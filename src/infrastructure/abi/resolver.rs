@@ -109,7 +109,41 @@ impl AbiResolver {
             selector_hex
         );
 
+        // Debug: Log the lookup request
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/poke-abi-debug.log")
+        {
+            use std::io::Write;
+            let _ = writeln!(f, "[LOOKUP] Requesting selector: {}", selector_hex);
+        }
+
         let result = self.fetch_selector_from_api(&url, &selector_hex, selector).await;
+
+        // Debug: Log the result
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/poke-abi-debug.log")
+        {
+            use std::io::Write;
+            match &result {
+                Ok(Some(sig)) => {
+                    let _ = writeln!(
+                        f,
+                        "[LOOKUP] Got result for {}: {} ({})",
+                        selector_hex, sig.name, sig.signature
+                    );
+                }
+                Ok(None) => {
+                    let _ = writeln!(f, "[LOOKUP] No result for {}", selector_hex);
+                }
+                Err(e) => {
+                    let _ = writeln!(f, "[LOOKUP] Error for {}: {:?}", selector_hex, e);
+                }
+            }
+        }
 
         // Remove from pending
         {
@@ -134,9 +168,16 @@ impl AbiResolver {
             .context("Failed to query OpenChain API")?;
 
         if !response.status().is_success() {
-            // Cache empty result to avoid repeated failures
-            let mut cache = self.selector_cache.write().await;
-            cache.insert(selector_hex.to_string(), vec![]);
+            // Don't cache failures - allow retry on next request
+            // Just log and return None
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/poke-abi-debug.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(f, "[RESOLVER] API returned status {} for {}", response.status(), selector_hex);
+            }
             return Ok(None);
         }
 
@@ -146,8 +187,15 @@ impl AbiResolver {
             .context("Failed to parse OpenChain response")?;
 
         if !data.ok {
-            let mut cache = self.selector_cache.write().await;
-            cache.insert(selector_hex.to_string(), vec![]);
+            // Don't cache - API error, allow retry
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/poke-abi-debug.log")
+            {
+                use std::io::Write;
+                let _ = writeln!(f, "[RESOLVER] API returned ok=false for {}", selector_hex);
+            }
             return Ok(None);
         }
 
