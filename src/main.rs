@@ -140,6 +140,7 @@ fn run_app<B: ratatui::backend::Backend>(
 
     loop {
         pump_background(&mut app, &runtime, &abi_evt_rx);
+        app.sync_context();
         terminal.draw(|f| ui::draw(f, &app))?;
         if app.should_quit {
             let _ = runtime.send(RuntimeCommand::Shutdown);

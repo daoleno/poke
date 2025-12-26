@@ -4,6 +4,7 @@ use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
 use crate::config::TokenSpec;
+use crate::core::Context;
 use crate::domain::abi::AbiRegistry;
 use crate::AbiScanRequest;
 use crate::store::LabelStore;
@@ -428,6 +429,8 @@ pub struct RpcEndpointOption {
 
 #[derive(Debug)]
 pub struct App {
+    /// Shared context for modules
+    pub ctx: Context,
     pub view_stack: Vec<View>,
     pub active_section: Section,
     pub focus: Focus,
@@ -489,6 +492,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let mut app = Self {
+            ctx: Context::new(),
             view_stack: vec![View::Overview],
             active_section: Section::Overview,
             focus: Focus::Sidebar,
@@ -547,6 +551,52 @@ impl App {
         };
         app.seed_mock();
         app
+    }
+
+    /// Sync context with app state
+    pub fn sync_context(&mut self) {
+        self.ctx.labels = self.labels.clone();
+        self.ctx.rpc_endpoint = self.rpc_endpoint.clone();
+        self.ctx.node_kind = self.node_kind.clone();
+        self.ctx.paused = self.paused;
+
+        // Update selected based on current view and selection
+        self.ctx.selected = match self.current_view() {
+            View::BlockDetail => {
+                if let Some(block) = self.blocks.get(self.selected_block) {
+                    crate::core::Selected::Block(block.number)
+                } else {
+                    crate::core::Selected::None
+                }
+            }
+            View::TxDetail => {
+                if let Some(tx) = self.txs.get(self.selected_tx) {
+                    crate::core::Selected::Transaction(tx.hash.clone())
+                } else {
+                    crate::core::Selected::None
+                }
+            }
+            View::AddressDetail | View::ContractDetail => {
+                if let Some(addr) = self.addresses.get(self.selected_address) {
+                    crate::core::Selected::Address(addr.address.clone())
+                } else if let Some(contract) = self.contracts.get(self.selected_contract) {
+                    crate::core::Selected::Address(contract.address.clone())
+                } else {
+                    crate::core::Selected::None
+                }
+            }
+            View::Trace => {
+                if let Some(tx) = self.txs.get(self.selected_tx) {
+                    crate::core::Selected::TraceFrame {
+                        tx: tx.hash.clone(),
+                        index: self.selected_trace,
+                    }
+                } else {
+                    crate::core::Selected::None
+                }
+            }
+            _ => crate::core::Selected::None,
+        };
     }
 
     pub fn current_view(&self) -> View {
