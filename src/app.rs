@@ -1644,12 +1644,25 @@ impl App {
             Command::Create(_) => Action::Notify("Create: coming soon".into(), NotifyLevel::Info),
             Command::Create2(_) => Action::Notify("Create2: coming soon".into(), NotifyLevel::Info),
 
+            // Ops commands - implemented
+            Command::Health => {
+                let block_num = self.blocks.last().map(|b| b.number);
+                crate::modules::ops::health::health_from_state(
+                    self.sync_progress < 1.0,
+                    self.peer_count,
+                    self.last_rtt_ms,
+                    block_num,
+                )
+            }
+            Command::Peers => crate::modules::ops::peers::peers_count(self.peer_count),
+            Command::RpcStats => crate::modules::ops::rpc_stats::rpc_stats_simple(
+                self.last_rtt_ms,
+                &self.rpc_endpoint,
+            ),
+            Command::Mempool => crate::modules::ops::mempool::mempool_unavailable(),
+
             // Ops commands - not yet implemented
-            Command::Health => Action::Notify("Health: coming soon".into(), NotifyLevel::Info),
-            Command::Peers => Action::Notify("Peers: coming soon".into(), NotifyLevel::Info),
             Command::Logs => Action::Notify("Logs: coming soon".into(), NotifyLevel::Info),
-            Command::Mempool => Action::Notify("Mempool: coming soon".into(), NotifyLevel::Info),
-            Command::RpcStats => Action::Notify("RPC Stats: coming soon".into(), NotifyLevel::Info),
 
             // Node management - not yet implemented
             Command::Connect(_) => Action::Notify("Connect: coming soon".into(), NotifyLevel::Info),
