@@ -1,6 +1,7 @@
 //! Toolkit commands for data processing and conversion
 
 pub mod convert;
+pub mod fourbyte;
 pub mod hash;
 pub mod hex;
 pub mod selector;
