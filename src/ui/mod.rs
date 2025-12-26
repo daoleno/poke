@@ -43,6 +43,7 @@ pub fn draw(f: &mut Frame, app: &App) {
 
 fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
     use crate::core::Module;
+    use crate::modules::dashboard::{ActivityItem, ActivityKind, NodeInfo};
 
     // Split area for dashboard and status/command line
     let chunks = Layout::default()
@@ -54,9 +55,46 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         ])
         .split(area);
 
-    // Render dashboard
+    // Prepare node info
+    let node_info = NodeInfo {
+        rpc_endpoint: app.rpc_endpoint.clone(),
+        node_kind: app.node_kind.clone(),
+        peer_count: app.peer_count,
+        sync_progress: app.sync_progress,
+        last_rtt_ms: app.last_rtt_ms,
+    };
+
+    // Prepare activity items (last 5 blocks + last 5 txs)
+    let mut activity_items = Vec::new();
+
+    // Add recent blocks
+    for block in app.blocks.iter().rev().take(5) {
+        activity_items.push(ActivityItem {
+            kind: ActivityKind::Block(block.number),
+            display: format!("{} txs", block.tx_count),
+        });
+    }
+
+    // Add recent transactions
+    for tx in app.txs.iter().rev().take(5) {
+        activity_items.push(ActivityItem {
+            kind: ActivityKind::Transaction(tx.hash.clone()),
+            display: tx.method.clone(),
+        });
+    }
+
+    // Prepare watched addresses
+    let watched: Vec<String> = app.watched_addresses.iter().cloned().collect();
+
+    // Render dashboard with data
     let dashboard = app.dashboard.clone();
-    dashboard.render(f, chunks[0], &app.ctx);
+    dashboard.render_with_data(
+        f,
+        chunks[0],
+        Some(&node_info),
+        Some(&activity_items),
+        Some(&watched),
+    );
 
     // Render status and command line
     draw_status_line(f, chunks[1], app);
