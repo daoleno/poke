@@ -279,16 +279,58 @@ fn draw_status_line(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(paragraph, area);
 }
 
+/// Get command hint for autocompletion
+fn command_hint(input: &str) -> Option<&'static str> {
+    let input = input.trim().to_lowercase();
+    if input.is_empty() {
+        return None;
+    }
+
+    let commands = [
+        ("blocks", "Navigate to blocks"),
+        ("txs", "Navigate to transactions"),
+        ("address", "Navigate to address"),
+        ("trace", "Show transaction trace"),
+        ("encode", "ABI encode calldata"),
+        ("decode", "ABI decode data"),
+        ("hash", "Compute keccak256"),
+        ("hex", "Convert hex/dec/string"),
+        ("selector", "Compute function selector"),
+        ("4byte", "Lookup selector"),
+        ("convert", "Convert units (wei/gwei/ether)"),
+        ("timestamp", "Convert timestamp"),
+        ("call", "Call contract (read-only)"),
+        ("gas", "Estimate gas"),
+        ("slot", "Calculate storage slot"),
+        ("health", "Node health check"),
+        ("peers", "Show peer details"),
+        ("logs", "Show node logs"),
+        ("anvil", "Manage Anvil"),
+        ("mine", "Mine blocks (Anvil)"),
+    ];
+
+    for (cmd, desc) in commands {
+        if cmd.starts_with(&input) {
+            return Some(desc);
+        }
+    }
+    None
+}
+
 fn draw_command_line(f: &mut Frame, area: Rect, app: &App) {
     let content = match app.input_mode {
-        InputMode::Command => Line::from(vec![
-            Span::styled("> /", Style::default().fg(Color::LightCyan)),
-            Span::raw(&app.command.input),
-            Span::styled(
-                "  (search: block/addr/tx | filter: key:value)",
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]),
+        InputMode::Command => {
+            let hint = command_hint(&app.command.input);
+            let hint_text = hint.unwrap_or("search: block/addr/tx | filter: key:value");
+            Line::from(vec![
+                Span::styled(": ", Style::default().fg(Color::Yellow)),
+                Span::raw(&app.command.input),
+                Span::styled(
+                    format!("  {}", hint_text),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ])
+        }
         InputMode::Prompt(PromptKind::StorageSlot) => {
             let target = app
                 .prompt_context
