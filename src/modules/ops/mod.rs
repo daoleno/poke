@@ -1,6 +1,7 @@
 //! Operations monitoring commands
 
 pub mod health;
+pub mod mempool;
 pub mod peers;
 pub mod rpc_stats;
 
