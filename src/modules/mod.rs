@@ -13,6 +13,7 @@
 //! - workflow: Workflows (anvil, watch, call)
 
 pub mod toolkit;
+pub mod ops;
 
 // Modules will be added incrementally:
 // pub mod dashboard;
