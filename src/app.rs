@@ -1663,8 +1663,22 @@ impl App {
             ),
             Command::Mempool => crate::modules::ops::mempool::mempool_unavailable(),
 
-            // Ops commands - not yet implemented
-            Command::Logs => Action::Notify("Logs: coming soon".into(), NotifyLevel::Info),
+            // Ops commands - Phase 5
+            Command::Logs => crate::modules::ops::logs::logs(None),
+            Command::Metrics => {
+                // Create empty collector for preview
+                // TODO: Integrate with actual metrics collection
+                let collector = crate::modules::ops::MetricsCollector::new();
+                crate::modules::ops::metrics::metrics(&collector)
+            }
+            Command::Alerts => {
+                // Use current app state for alert checking
+                crate::modules::ops::alerts::alerts(
+                    self.peer_count,
+                    self.last_rtt_ms,
+                    self.sync_progress < 1.0,
+                )
+            }
 
             // Workflow commands - implemented
             Command::Connect(url) => crate::modules::workflow::nodes::connect(Some(url.clone())),

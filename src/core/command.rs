@@ -35,6 +35,8 @@ pub enum Command {
     Health,
     Peers,
     Logs,
+    Metrics,
+    Alerts,
     Mempool,
     RpcStats,
 
@@ -102,6 +104,8 @@ pub fn parse_command(input: &str) -> Command {
         "health" => Command::Health,
         "peers" => Command::Peers,
         "logs" | "log" => Command::Logs,
+        "metrics" | "metric" => Command::Metrics,
+        "alerts" | "alert" => Command::Alerts,
         "mempool" | "pool" => Command::Mempool,
         "rpc-stats" | "rpcstats" | "stats" => Command::RpcStats,
 
@@ -174,6 +178,10 @@ mod tests {
         assert_eq!(parse_command("health"), Command::Health);
         assert_eq!(parse_command("peers"), Command::Peers);
         assert_eq!(parse_command("logs"), Command::Logs);
+        assert_eq!(parse_command("metrics"), Command::Metrics);
+        assert_eq!(parse_command("metric"), Command::Metrics);
+        assert_eq!(parse_command("alerts"), Command::Alerts);
+        assert_eq!(parse_command("alert"), Command::Alerts);
     }
 
     #[test]
