@@ -354,17 +354,44 @@ impl Dashboard {
             .title("INSPECTOR")
             .border_style(border_style);
 
-        let content = vec![
-            "Selected item details",
-            "",
-            "Click on an item in ACTIVITY",
-            "to view its details here",
-            "",
-            "Press 'y' to copy values",
-        ]
-        .join("\n");
+        let lines = vec![
+            Line::from(Span::styled(
+                "Quick Actions",
+                Style::default().fg(Color::LightCyan),
+            )),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("Tab", Style::default().fg(Color::Yellow)),
+                Span::raw("  - Navigate panels"),
+            ]),
+            Line::from(vec![
+                Span::styled("f", Style::default().fg(Color::Yellow)),
+                Span::raw("    - Enter Explorer"),
+            ]),
+            Line::from(vec![
+                Span::styled(":", Style::default().fg(Color::Yellow)),
+                Span::raw("    - Command mode"),
+            ]),
+            Line::from(""),
+            Line::from(Span::styled(
+                "Common Commands:",
+                Style::default().fg(Color::LightCyan),
+            )),
+            Line::from(vec![
+                Span::styled(":health", Style::default().fg(Color::Green)),
+                Span::styled("  - Node health", Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::from(vec![
+                Span::styled(":peers", Style::default().fg(Color::Green)),
+                Span::styled("   - Peer info", Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::from(vec![
+                Span::styled(":metrics", Style::default().fg(Color::Green)),
+                Span::styled("  - Show metrics", Style::default().fg(Color::DarkGray)),
+            ]),
+        ];
 
-        let paragraph = Paragraph::new(content).block(block);
+        let paragraph = Paragraph::new(lines).block(block);
         frame.render_widget(paragraph, area);
     }
 
