@@ -6,6 +6,7 @@ pub mod fourbyte;
 pub mod hash;
 pub mod hex;
 pub mod selector;
+pub mod slot;
 pub mod timestamp;
 
 use crate::core::{Action, NotifyLevel};
