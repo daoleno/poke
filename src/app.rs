@@ -1639,12 +1639,12 @@ impl App {
             Command::Encode(args) => crate::modules::toolkit::encode::encode(args.clone()),
             Command::Decode(args) => crate::modules::toolkit::decode::decode(args.clone(), &self.signature_cache),
 
-            // Toolkit commands - not yet implemented
-            Command::Call(_) => Action::Notify("Call: coming soon".into(), NotifyLevel::Info),
-            Command::Gas(_) => Action::Notify("Gas: coming soon".into(), NotifyLevel::Info),
-            Command::Slot(_) => Action::Notify("Slot: coming soon".into(), NotifyLevel::Info),
-            Command::Create(_) => Action::Notify("Create: coming soon".into(), NotifyLevel::Info),
-            Command::Create2(_) => Action::Notify("Create2: coming soon".into(), NotifyLevel::Info),
+            // Toolkit commands - Phase 3 (all implemented)
+            Command::Slot(args) => crate::modules::toolkit::slot::slot(args.clone()),
+            Command::Create(args) => crate::modules::toolkit::create::create_address(args.clone()),
+            Command::Create2(args) => crate::modules::toolkit::create2::create2_address(args.clone()),
+            Command::Call(args) => crate::modules::toolkit::call::call(args.clone()),
+            Command::Gas(args) => crate::modules::toolkit::gas::estimate_gas(args.clone()),
 
             // Ops commands - implemented
             Command::Health => {

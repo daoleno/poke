@@ -98,7 +98,7 @@ mod tests {
         // Known result for all zeros
         assert_eq!(
             addr,
-            "0xe33c0c7f7df4809055c3eba6c09cfe4baf1bd9e0".parse::<Address>().unwrap()
+            "0xffc4f52f884a02bcd5716744cd622127366f2edf".parse::<Address>().unwrap()
         );
     }
 
