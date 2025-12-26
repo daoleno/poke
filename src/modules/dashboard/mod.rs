@@ -37,11 +37,20 @@ pub enum DashboardPanel {
     Watching,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActivityFilter {
+    All,
+    BlocksOnly,
+    TransactionsOnly,
+}
+
 #[derive(Clone, Debug)]
 pub struct Dashboard {
     active_panel: DashboardPanel,
     /// Selected item index in ACTIVITY panel (None if no selection)
     selected_activity: Option<usize>,
+    /// Filter for ACTIVITY panel
+    activity_filter: ActivityFilter,
 }
 
 impl Dashboard {
@@ -49,7 +58,22 @@ impl Dashboard {
         Self {
             active_panel: DashboardPanel::Nodes,
             selected_activity: None,
+            activity_filter: ActivityFilter::All,
         }
+    }
+
+    pub fn cycle_activity_filter(&mut self) {
+        self.activity_filter = match self.activity_filter {
+            ActivityFilter::All => ActivityFilter::BlocksOnly,
+            ActivityFilter::BlocksOnly => ActivityFilter::TransactionsOnly,
+            ActivityFilter::TransactionsOnly => ActivityFilter::All,
+        };
+        // Reset selection when filter changes
+        self.selected_activity = None;
+    }
+
+    pub fn activity_filter(&self) -> ActivityFilter {
+        self.activity_filter
     }
 
     pub fn select_activity(&mut self, index: usize) {
@@ -136,6 +160,13 @@ impl Module for Dashboard {
                 } else {
                     Action::None
                 }
+            }
+            KeyCode::Char('x') => {
+                // Toggle activity filter when in Activity panel
+                if self.active_panel == DashboardPanel::Activity {
+                    self.cycle_activity_filter();
+                }
+                Action::None
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 // Navigate up in Activity panel
@@ -324,9 +355,15 @@ impl Dashboard {
             Style::default().fg(Color::DarkGray)
         };
 
+        let filter_text = match self.activity_filter {
+            ActivityFilter::All => " [All]",
+            ActivityFilter::BlocksOnly => " [Blocks]",
+            ActivityFilter::TransactionsOnly => " [Txs]",
+        };
+
         let block = Block::default()
             .borders(Borders::ALL)
-            .title("ACTIVITY")
+            .title(format!("ACTIVITY{}", filter_text))
             .border_style(border_style);
 
         let lines = if let Some(items) = activity {
@@ -340,16 +377,35 @@ impl Dashboard {
                     )),
                 ]
             } else {
-                let mut lines = vec![];
-                lines.push(Line::from(Span::styled(
-                    "Recent activity (↑↓ to select):",
-                    Style::default().fg(Color::LightCyan),
-                )));
-                lines.push(Line::from(""));
+                // Filter items based on current filter
+                let filtered_items: Vec<_> = items.iter().enumerate().filter(|(_, item)| {
+                    match self.activity_filter {
+                        ActivityFilter::All => true,
+                        ActivityFilter::BlocksOnly => matches!(item.kind, ActivityKind::Block(_)),
+                        ActivityFilter::TransactionsOnly => matches!(item.kind, ActivityKind::Transaction(_)),
+                    }
+                }).collect();
 
-                // Render all items in order with selection highlighting
-                for (idx, item) in items.iter().enumerate() {
-                    let is_selected = self.selected_activity == Some(idx);
+                if filtered_items.is_empty() {
+                    vec![
+                        Line::from("No items match filter"),
+                        Line::from(""),
+                        Line::from(Span::styled(
+                            "Press 'x' to toggle filter",
+                            Style::default().fg(Color::DarkGray),
+                        )),
+                    ]
+                } else {
+                    let mut lines = vec![];
+                    lines.push(Line::from(Span::styled(
+                        "Recent activity (↑↓ to select, x to filter):",
+                        Style::default().fg(Color::LightCyan),
+                    )));
+                    lines.push(Line::from(""));
+
+                    // Render filtered items with selection highlighting
+                    for (original_idx, item) in filtered_items {
+                    let is_selected = self.selected_activity == Some(original_idx);
 
                     match &item.kind {
                         ActivityKind::Block(num) => {
@@ -413,9 +469,6 @@ impl Dashboard {
                     }
                 }
 
-                if lines.len() == 2 {
-                    vec![Line::from("No activity to display")]
-                } else {
                     lines
                 }
             }
