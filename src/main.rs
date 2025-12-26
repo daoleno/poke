@@ -634,7 +634,14 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
             app.page_down(page_amount(false));
         }
         (KeyCode::Char('f'), _) => {
-            if app.list_kind() == ListKind::Blocks {
+            // 'f' key behavior depends on current view
+            if app.current_view() == View::Dashboard {
+                // From Dashboard: enter Explorer (Blocks view)
+                app.push_view(View::Overview);
+                app.set_section(Section::Blocks);
+                app.focus = Focus::List;
+            } else if app.list_kind() == ListKind::Blocks {
+                // In Explorer Blocks view: toggle pin
                 app.toggle_pin();
             } else {
                 app.set_status("Pin is available in Blocks list", StatusLevel::Warn);
@@ -696,11 +703,35 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
             }
         }
         (KeyCode::Char(' '), _) => app.toggle_pause(),
-        (KeyCode::Tab, _) => cycle_focus(app),
+        (KeyCode::Tab, _) => {
+            // Tab behavior depends on current view
+            if app.current_view() == View::Dashboard {
+                // In Dashboard: navigate between panels
+                use crate::core::Module;
+                let key_event = crossterm::event::KeyEvent::new(
+                    KeyCode::Tab,
+                    crossterm::event::KeyModifiers::NONE,
+                );
+                app.dashboard.handle_key(key_event, &mut app.ctx);
+            } else {
+                // In Explorer: cycle focus
+                cycle_focus(app);
+            }
+        }
         (KeyCode::Enter, _) => handle_enter(app),
         (KeyCode::Esc, _) => {
-            app.pop_view();
-            app.focus = Focus::List;
+            // Esc behavior: return to Dashboard if we're in Explorer
+            if app.current_view() != View::Dashboard && app.view_stack.first() == Some(&View::Dashboard) {
+                // Pop back to Dashboard
+                while app.view_stack.len() > 1 {
+                    app.view_stack.pop();
+                }
+                app.focus = Focus::List;
+            } else {
+                // Normal pop behavior
+                app.pop_view();
+                app.focus = Focus::List;
+            }
         }
         (KeyCode::Char('['), _) => app.cycle_section(false),
         (KeyCode::Char(']'), _) => app.cycle_section(true),
