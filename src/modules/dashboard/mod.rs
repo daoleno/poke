@@ -40,12 +40,47 @@ pub enum DashboardPanel {
 #[derive(Clone, Debug)]
 pub struct Dashboard {
     active_panel: DashboardPanel,
+    /// Selected item index in ACTIVITY panel (None if no selection)
+    selected_activity: Option<usize>,
 }
 
 impl Dashboard {
     pub fn new() -> Self {
         Self {
             active_panel: DashboardPanel::Nodes,
+            selected_activity: None,
+        }
+    }
+
+    pub fn select_activity(&mut self, index: usize) {
+        self.selected_activity = Some(index);
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selected_activity = None;
+    }
+
+    pub fn selected_activity(&self) -> Option<usize> {
+        self.selected_activity
+    }
+
+    pub fn move_selection_up(&mut self) {
+        if let Some(idx) = self.selected_activity {
+            if idx > 0 {
+                self.selected_activity = Some(idx - 1);
+            }
+        } else {
+            self.selected_activity = Some(0);
+        }
+    }
+
+    pub fn move_selection_down(&mut self, max: usize) {
+        if let Some(idx) = self.selected_activity {
+            if idx + 1 < max {
+                self.selected_activity = Some(idx + 1);
+            }
+        } else {
+            self.selected_activity = Some(0);
         }
     }
 
@@ -85,6 +120,26 @@ impl Module for Dashboard {
                 // Enter full-screen explorer
                 Action::Navigate(crate::core::NavigateTarget::Blocks)
             }
+            KeyCode::Up | KeyCode::Char('k') => {
+                // Navigate up in Activity panel
+                if self.active_panel == DashboardPanel::Activity {
+                    self.move_selection_up();
+                }
+                Action::None
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                // Navigate down in Activity panel
+                if self.active_panel == DashboardPanel::Activity {
+                    // Max will be set by render based on actual item count
+                    // For now, just move down without limit check
+                    if let Some(idx) = self.selected_activity {
+                        self.selected_activity = Some(idx + 1);
+                    } else {
+                        self.selected_activity = Some(0);
+                    }
+                }
+                Action::None
+            }
             _ => Action::None,
         }
     }
@@ -113,7 +168,7 @@ impl Module for Dashboard {
         // Render each panel (placeholders for now - will be updated by draw_dashboard)
         self.render_nodes_panel(frame, top_chunks[0], None);
         self.render_activity_panel(frame, top_chunks[1], None);
-        self.render_inspector_panel(frame, bottom_chunks[0]);
+        self.render_inspector_panel(frame, bottom_chunks[0], None);
         self.render_watching_panel(frame, bottom_chunks[1], None);
     }
 }
@@ -144,10 +199,14 @@ impl Dashboard {
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(chunks[1]);
 
+        // Get selected activity item for inspector
+        let selected_item = activity
+            .and_then(|items| self.selected_activity.and_then(|idx| items.get(idx)));
+
         // Render each panel with data
         self.render_nodes_panel(frame, top_chunks[0], node_info);
         self.render_activity_panel(frame, top_chunks[1], activity);
-        self.render_inspector_panel(frame, bottom_chunks[0]);
+        self.render_inspector_panel(frame, bottom_chunks[0], selected_item);
         self.render_watching_panel(frame, bottom_chunks[1], watched);
     }
 
@@ -265,62 +324,79 @@ impl Dashboard {
                 ]
             } else {
                 let mut lines = vec![];
+                lines.push(Line::from(Span::styled(
+                    "Recent activity (↑↓ to select):",
+                    Style::default().fg(Color::LightCyan),
+                )));
+                lines.push(Line::from(""));
 
-                // Show recent blocks
-                let blocks: Vec<_> = items
-                    .iter()
-                    .filter(|item| matches!(item.kind, ActivityKind::Block(_)))
-                    .take(5)
-                    .collect();
+                // Render all items in order with selection highlighting
+                for (idx, item) in items.iter().enumerate() {
+                    let is_selected = self.selected_activity == Some(idx);
 
-                if !blocks.is_empty() {
-                    lines.push(Line::from(Span::styled(
-                        "Recent blocks:",
-                        Style::default().fg(Color::LightCyan),
-                    )));
-                    for item in blocks {
-                        if let ActivityKind::Block(num) = item.kind {
-                            lines.push(Line::from(vec![
+                    match &item.kind {
+                        ActivityKind::Block(num) => {
+                            let mut spans = vec![
                                 Span::raw("  "),
-                                Span::styled(format!("#{}", num), Style::default().fg(Color::White)),
-                                Span::styled("  ", Style::default().fg(Color::DarkGray)),
-                                Span::styled(&item.display, Style::default().fg(Color::DarkGray)),
-                            ]));
+                                Span::styled("Block", Style::default().fg(Color::DarkGray)),
+                                Span::raw(" "),
+                            ];
+
+                            let num_style = if is_selected {
+                                Style::default().fg(Color::Black).bg(Color::Cyan)
+                            } else {
+                                Style::default().fg(Color::White)
+                            };
+
+                            spans.push(Span::styled(format!("#{}", num), num_style));
+                            spans.push(Span::raw(" "));
+
+                            let display_style = if is_selected {
+                                Style::default().fg(Color::DarkGray).bg(Color::Cyan)
+                            } else {
+                                Style::default().fg(Color::DarkGray)
+                            };
+
+                            spans.push(Span::styled(&item.display, display_style));
+
+                            lines.push(Line::from(spans));
                         }
-                    }
-                    lines.push(Line::from(""));
-                }
-
-                // Show recent transactions
-                let txs: Vec<_> = items
-                    .iter()
-                    .filter(|item| matches!(item.kind, ActivityKind::Transaction(_)))
-                    .take(5)
-                    .collect();
-
-                if !txs.is_empty() {
-                    lines.push(Line::from(Span::styled(
-                        "Recent txs:",
-                        Style::default().fg(Color::LightCyan),
-                    )));
-                    for item in txs {
-                        if let ActivityKind::Transaction(ref hash) = item.kind {
+                        ActivityKind::Transaction(hash) => {
                             let short_hash = if hash.len() > 12 {
                                 &hash[..12]
                             } else {
                                 hash
                             };
-                            lines.push(Line::from(vec![
+
+                            let mut spans = vec![
                                 Span::raw("  "),
-                                Span::styled(short_hash, Style::default().fg(Color::White)),
-                                Span::styled("  ", Style::default().fg(Color::DarkGray)),
-                                Span::styled(&item.display, Style::default().fg(Color::DarkGray)),
-                            ]));
+                                Span::styled("Tx", Style::default().fg(Color::DarkGray)),
+                                Span::raw("    "),
+                            ];
+
+                            let hash_style = if is_selected {
+                                Style::default().fg(Color::Black).bg(Color::Cyan)
+                            } else {
+                                Style::default().fg(Color::White)
+                            };
+
+                            spans.push(Span::styled(short_hash, hash_style));
+                            spans.push(Span::raw(" "));
+
+                            let display_style = if is_selected {
+                                Style::default().fg(Color::DarkGray).bg(Color::Cyan)
+                            } else {
+                                Style::default().fg(Color::DarkGray)
+                            };
+
+                            spans.push(Span::styled(&item.display, display_style));
+
+                            lines.push(Line::from(spans));
                         }
                     }
                 }
 
-                if lines.is_empty() {
+                if lines.len() == 2 {
                     vec![Line::from("No activity to display")]
                 } else {
                     lines
@@ -341,7 +417,7 @@ impl Dashboard {
         frame.render_widget(paragraph, area);
     }
 
-    fn render_inspector_panel(&self, frame: &mut ratatui::Frame, area: Rect) {
+    fn render_inspector_panel(&self, frame: &mut ratatui::Frame, area: Rect, selected_item: Option<&ActivityItem>) {
         let is_active = self.active_panel == DashboardPanel::Inspector;
         let border_style = if is_active {
             Style::default().fg(Color::Cyan)
@@ -354,42 +430,115 @@ impl Dashboard {
             .title("INSPECTOR")
             .border_style(border_style);
 
-        let lines = vec![
-            Line::from(Span::styled(
-                "Quick Actions",
-                Style::default().fg(Color::LightCyan),
-            )),
-            Line::from(""),
-            Line::from(vec![
-                Span::styled("Tab", Style::default().fg(Color::Yellow)),
-                Span::raw("  - Navigate panels"),
-            ]),
-            Line::from(vec![
-                Span::styled("f", Style::default().fg(Color::Yellow)),
-                Span::raw("    - Enter Explorer"),
-            ]),
-            Line::from(vec![
-                Span::styled(":", Style::default().fg(Color::Yellow)),
-                Span::raw("    - Command mode"),
-            ]),
-            Line::from(""),
-            Line::from(Span::styled(
-                "Common Commands:",
-                Style::default().fg(Color::LightCyan),
-            )),
-            Line::from(vec![
-                Span::styled(":health", Style::default().fg(Color::Green)),
-                Span::styled("  - Node health", Style::default().fg(Color::DarkGray)),
-            ]),
-            Line::from(vec![
-                Span::styled(":peers", Style::default().fg(Color::Green)),
-                Span::styled("   - Peer info", Style::default().fg(Color::DarkGray)),
-            ]),
-            Line::from(vec![
-                Span::styled(":metrics", Style::default().fg(Color::Green)),
-                Span::styled("  - Show metrics", Style::default().fg(Color::DarkGray)),
-            ]),
-        ];
+        let lines = if let Some(item) = selected_item {
+            // Show details of selected activity item
+            match &item.kind {
+                ActivityKind::Block(num) => {
+                    vec![
+                        Line::from(Span::styled(
+                            "Block Details",
+                            Style::default().fg(Color::LightCyan),
+                        )),
+                        Line::from(""),
+                        Line::from(vec![
+                            Span::styled("Number: ", Style::default().fg(Color::DarkGray)),
+                            Span::styled(format!("#{}", num), Style::default().fg(Color::White)),
+                        ]),
+                        Line::from(vec![
+                            Span::styled("Info: ", Style::default().fg(Color::DarkGray)),
+                            Span::styled(&item.display, Style::default().fg(Color::White)),
+                        ]),
+                        Line::from(""),
+                        Line::from(Span::styled(
+                            "Actions:",
+                            Style::default().fg(Color::LightCyan),
+                        )),
+                        Line::from(vec![
+                            Span::styled("Enter", Style::default().fg(Color::Yellow)),
+                            Span::raw("  - View block details"),
+                        ]),
+                        Line::from(vec![
+                            Span::styled("f", Style::default().fg(Color::Yellow)),
+                            Span::raw("      - Go to Explorer"),
+                        ]),
+                    ]
+                }
+                ActivityKind::Transaction(hash) => {
+                    let short_hash = if hash.len() > 20 {
+                        format!("{}..{}", &hash[..10], &hash[hash.len()-8..])
+                    } else {
+                        hash.clone()
+                    };
+
+                    vec![
+                        Line::from(Span::styled(
+                            "Transaction Details",
+                            Style::default().fg(Color::LightCyan),
+                        )),
+                        Line::from(""),
+                        Line::from(vec![
+                            Span::styled("Hash: ", Style::default().fg(Color::DarkGray)),
+                            Span::styled(short_hash, Style::default().fg(Color::White)),
+                        ]),
+                        Line::from(vec![
+                            Span::styled("Method: ", Style::default().fg(Color::DarkGray)),
+                            Span::styled(&item.display, Style::default().fg(Color::White)),
+                        ]),
+                        Line::from(""),
+                        Line::from(Span::styled(
+                            "Actions:",
+                            Style::default().fg(Color::LightCyan),
+                        )),
+                        Line::from(vec![
+                            Span::styled("Enter", Style::default().fg(Color::Yellow)),
+                            Span::raw("  - View tx details"),
+                        ]),
+                        Line::from(vec![
+                            Span::styled("f", Style::default().fg(Color::Yellow)),
+                            Span::raw("      - Go to Explorer"),
+                        ]),
+                    ]
+                }
+            }
+        } else {
+            // Show quick actions when nothing is selected
+            vec![
+                Line::from(Span::styled(
+                    "Quick Actions",
+                    Style::default().fg(Color::LightCyan),
+                )),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("Tab", Style::default().fg(Color::Yellow)),
+                    Span::raw("  - Navigate panels"),
+                ]),
+                Line::from(vec![
+                    Span::styled("f", Style::default().fg(Color::Yellow)),
+                    Span::raw("    - Enter Explorer"),
+                ]),
+                Line::from(vec![
+                    Span::styled(":", Style::default().fg(Color::Yellow)),
+                    Span::raw("    - Command mode"),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "Common Commands:",
+                    Style::default().fg(Color::LightCyan),
+                )),
+                Line::from(vec![
+                    Span::styled(":health", Style::default().fg(Color::Green)),
+                    Span::styled("  - Node health", Style::default().fg(Color::DarkGray)),
+                ]),
+                Line::from(vec![
+                    Span::styled(":peers", Style::default().fg(Color::Green)),
+                    Span::styled("   - Peer info", Style::default().fg(Color::DarkGray)),
+                ]),
+                Line::from(vec![
+                    Span::styled(":metrics", Style::default().fg(Color::Green)),
+                    Span::styled("  - Show metrics", Style::default().fg(Color::DarkGray)),
+                ]),
+            ]
+        };
 
         let paragraph = Paragraph::new(lines).block(block);
         frame.render_widget(paragraph, area);
