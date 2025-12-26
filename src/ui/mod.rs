@@ -13,7 +13,7 @@ use crate::app::{
 };
 use crate::config;
 
-pub fn draw(f: &mut Frame, app: &App) {
+pub fn draw(f: &mut Frame, app: &mut App) {
     let size = f.size();
 
     // Check if we're in dashboard view
@@ -41,7 +41,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     }
 }
 
-fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
+fn draw_dashboard(f: &mut Frame, area: Rect, app: &mut App) {
     use crate::core::Module;
     use crate::modules::dashboard::{ActivityItem, ActivityKind, NodeInfo};
 
@@ -85,6 +85,21 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
 
     // Prepare watched addresses
     let watched: Vec<String> = app.watched_addresses.iter().cloned().collect();
+
+    // Update context with selected activity item (for Enter key navigation)
+    if let Some(idx) = app.dashboard.selected_activity() {
+        if let Some(item) = activity_items.get(idx) {
+            use crate::core::Selected;
+            app.ctx.selected = match &item.kind {
+                ActivityKind::Block(num) => Selected::Block(*num),
+                ActivityKind::Transaction(hash) => Selected::Transaction(hash.clone()),
+            };
+        } else {
+            app.ctx.selected = crate::core::Selected::None;
+        }
+    } else {
+        app.ctx.selected = crate::core::Selected::None;
+    }
 
     // Render dashboard with data
     let dashboard = app.dashboard.clone();

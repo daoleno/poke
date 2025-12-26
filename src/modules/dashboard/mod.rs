@@ -108,8 +108,9 @@ impl Module for Dashboard {
         "dashboard"
     }
 
-    fn handle_key(&mut self, key: crossterm::event::KeyEvent, _ctx: &mut Context) -> Action {
+    fn handle_key(&mut self, key: crossterm::event::KeyEvent, ctx: &mut Context) -> Action {
         use crossterm::event::KeyCode;
+        use crate::core::Selected;
 
         match key.code {
             KeyCode::Tab => {
@@ -119,6 +120,22 @@ impl Module for Dashboard {
             KeyCode::Char('f') => {
                 // Enter full-screen explorer
                 Action::Navigate(crate::core::NavigateTarget::Blocks)
+            }
+            KeyCode::Enter => {
+                // Navigate to selected item detail view
+                if self.active_panel == DashboardPanel::Activity {
+                    match &ctx.selected {
+                        Selected::Block(num) => {
+                            Action::Navigate(crate::core::NavigateTarget::Block(*num))
+                        }
+                        Selected::Transaction(hash) => {
+                            Action::Navigate(crate::core::NavigateTarget::Transaction(hash.clone()))
+                        }
+                        _ => Action::None,
+                    }
+                } else {
+                    Action::None
+                }
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 // Navigate up in Activity panel

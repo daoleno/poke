@@ -141,7 +141,7 @@ fn run_app<B: ratatui::backend::Backend>(
     loop {
         pump_background(&mut app, &runtime, &abi_evt_rx);
         app.sync_context();
-        terminal.draw(|f| ui::draw(f, &app))?;
+        terminal.draw(|f| ui::draw(f, &mut app))?;
         if app.should_quit {
             let _ = runtime.send(RuntimeCommand::Shutdown);
             return Ok(());
@@ -740,8 +740,30 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
         (KeyCode::Char('3'), _) => app.set_section(Section::Transactions),
         (KeyCode::Char('4'), _) => app.set_section(Section::Addresses),
         (KeyCode::Char('5'), _) => app.set_section(Section::Contracts),
-        (KeyCode::Up | KeyCode::Char('k'), _) => handle_nav_up(app),
-        (KeyCode::Down | KeyCode::Char('j'), _) => handle_nav_down(app),
+        (KeyCode::Up | KeyCode::Char('k'), _) => {
+            if app.current_view() == View::Dashboard {
+                use crate::core::Module;
+                let key_event = crossterm::event::KeyEvent::new(
+                    key.code,
+                    crossterm::event::KeyModifiers::NONE,
+                );
+                app.dashboard.handle_key(key_event, &mut app.ctx);
+            } else {
+                handle_nav_up(app);
+            }
+        }
+        (KeyCode::Down | KeyCode::Char('j'), _) => {
+            if app.current_view() == View::Dashboard {
+                use crate::core::Module;
+                let key_event = crossterm::event::KeyEvent::new(
+                    key.code,
+                    crossterm::event::KeyModifiers::NONE,
+                );
+                app.dashboard.handle_key(key_event, &mut app.ctx);
+            } else {
+                handle_nav_down(app);
+            }
+        }
         _ => {}
     }
 }
@@ -794,6 +816,18 @@ fn enter_detail(app: &mut App) {
 }
 
 fn handle_enter(app: &mut App) {
+    // Handle Dashboard navigation
+    if app.current_view() == View::Dashboard {
+        use crate::core::Module;
+        let key_event = crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Enter,
+            crossterm::event::KeyModifiers::NONE,
+        );
+        let action = app.dashboard.handle_key(key_event, &mut app.ctx);
+        app.apply_action(action);
+        return;
+    }
+
     if app.current_view() == View::Trace {
         app.toggle_trace_collapse();
         return;
