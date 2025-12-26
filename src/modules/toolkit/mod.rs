@@ -1,5 +1,6 @@
 //! Toolkit commands for data processing and conversion
 
+pub mod checksum;
 pub mod convert;
 pub mod fourbyte;
 pub mod hash;
