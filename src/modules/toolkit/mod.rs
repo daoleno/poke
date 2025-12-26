@@ -3,6 +3,7 @@
 pub mod convert;
 pub mod hash;
 pub mod hex;
+pub mod selector;
 
 use crate::core::{Action, NotifyLevel};
 
