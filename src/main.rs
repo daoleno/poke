@@ -100,10 +100,12 @@ fn main() -> Result<()> {
         }
         match LabelStore::open(&db_path).and_then(|store| {
             let labels = store.load_all()?;
-            Ok((store, labels))
+            let watched = store.load_watched()?;
+            Ok((store, labels, watched))
         }) {
-            Ok((store, labels)) => {
+            Ok((store, labels, watched)) => {
                 app.labels = labels;
+                app.watched_addresses = watched;
                 app.label_store = Some(store);
             }
             Err(err) => {
@@ -651,9 +653,17 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
             if let Some(address) = context_address(app) {
                 if app.watched_addresses.contains(&address) {
                     app.watched_addresses.remove(&address);
+                    // Persist to database
+                    if let Some(store) = &app.label_store {
+                        let _ = store.remove_watched(&address);
+                    }
                     app.set_status("Removed watch", StatusLevel::Info);
                 } else {
-                    app.watched_addresses.insert(address);
+                    app.watched_addresses.insert(address.clone());
+                    // Persist to database
+                    if let Some(store) = &app.label_store {
+                        let _ = store.add_watched(&address);
+                    }
                     app.set_status("Watching address", StatusLevel::Info);
                 }
             } else {

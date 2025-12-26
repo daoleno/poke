@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -16,6 +16,8 @@ impl LabelStore {
         store.init()?;
         Ok(store)
     }
+
+    // === Labels ===
 
     pub fn load_all(&self) -> Result<BTreeMap<String, String>> {
         let mut stmt = self
@@ -46,11 +48,43 @@ impl LabelStore {
         Ok(())
     }
 
+    // === Watched Addresses ===
+
+    pub fn load_watched(&self) -> Result<BTreeSet<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT address FROM watched ORDER BY address")?;
+        let mut rows = stmt.query([])?;
+        let mut out = BTreeSet::new();
+        while let Some(row) = rows.next()? {
+            let address: String = row.get(0)?;
+            out.insert(address);
+        }
+        Ok(out)
+    }
+
+    pub fn add_watched(&self, address: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO watched(address) VALUES (?1)",
+            params![address],
+        )?;
+        Ok(())
+    }
+
+    pub fn remove_watched(&self, address: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM watched WHERE address = ?1", params![address])?;
+        Ok(())
+    }
+
     fn init(&self) -> Result<()> {
         self.conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS labels (
                 address TEXT PRIMARY KEY,
                 label   TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS watched (
+                address TEXT PRIMARY KEY
             );",
         )?;
         Ok(())
