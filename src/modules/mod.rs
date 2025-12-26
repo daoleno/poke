@@ -12,9 +12,10 @@
 //! - ops: Operations monitoring (health, peers, logs)
 //! - workflow: Workflows (anvil, watch, call)
 
+pub mod toolkit;
+
 // Modules will be added incrementally:
 // pub mod dashboard;
 // pub mod explorer;
-// pub mod toolkit;
 // pub mod ops;
 // pub mod workflow;
