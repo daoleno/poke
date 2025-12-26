@@ -673,6 +673,10 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
                 );
             }
         }
+        (KeyCode::Char('y'), _) => {
+            // Copy selected item to clipboard
+            handle_copy_to_clipboard(app);
+        }
         (KeyCode::Char('p'), _) => {
             if let Some(address) = context_address(app) {
                 app.request_balance(address);
@@ -1025,5 +1029,68 @@ fn handle_nav_down(app: &mut App) {
         Focus::Sidebar => app.cycle_section(true),
         Focus::List | Focus::Details => app.move_selection_down(),
         Focus::Command => {}
+    }
+}
+
+fn handle_copy_to_clipboard(app: &mut App) {
+    use arboard::Clipboard;
+    use crate::core::Selected;
+
+    let text_to_copy = match app.current_view() {
+        View::Dashboard => {
+            // In Dashboard, copy selected activity item
+            match &app.ctx.selected {
+                Selected::Block(num) => Some(format!("{}", num)),
+                Selected::Transaction(hash) => Some(hash.clone()),
+                Selected::Address(addr) => Some(addr.clone()),
+                Selected::None => None,
+                _ => None,
+            }
+        }
+        View::BlockDetail => {
+            // Copy block number
+            app.selected_block().map(|block| format!("{}", block.number))
+        }
+        View::TxDetail => {
+            // Copy transaction hash
+            app.selected_tx().map(|tx| tx.hash.clone())
+        }
+        View::AddressDetail => {
+            // Copy address
+            app.selected_address().map(|addr| addr.address.clone())
+        }
+        View::ContractDetail => {
+            // Copy contract address
+            app.selected_contract().map(|contract| contract.address.clone())
+        }
+        _ => {
+            // For other views, try to get context address
+            context_address(app)
+        }
+    };
+
+    if let Some(text) = text_to_copy {
+        match Clipboard::new() {
+            Ok(mut clipboard) => {
+                if clipboard.set_text(&text).is_ok() {
+                    app.ctx.set_clipboard(text.clone());
+                    app.set_status(
+                        format!("Copied: {}", if text.len() > 20 {
+                            format!("{}...", &text[..20])
+                        } else {
+                            text
+                        }),
+                        StatusLevel::Info,
+                    );
+                } else {
+                    app.set_status("Failed to copy to clipboard", StatusLevel::Error);
+                }
+            }
+            Err(_) => {
+                app.set_status("Clipboard not available", StatusLevel::Error);
+            }
+        }
+    } else {
+        app.set_status("Nothing to copy", StatusLevel::Warn);
     }
 }
