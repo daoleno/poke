@@ -23,6 +23,7 @@ alloy-primitives = "1.5"
 alloy-dyn-abi = "1.5"
 alloy-json-abi = "1.5"
 alloy-sol-types = "1.5"
+alloy-rlp = "0.3"
 
 # === OP Stack (Optimism/Base) Support ===
 op-alloy = { version = "0.23", features = ["rpc-types"] }

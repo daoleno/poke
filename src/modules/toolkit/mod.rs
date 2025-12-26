@@ -2,6 +2,7 @@
 
 pub mod checksum;
 pub mod convert;
+pub mod create;
 pub mod fourbyte;
 pub mod hash;
 pub mod hex;
