@@ -3,6 +3,7 @@ mod config;
 mod core;
 mod domain;
 mod infrastructure;
+mod modules;
 mod store;
 mod ui;
 
