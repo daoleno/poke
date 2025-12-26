@@ -14,9 +14,8 @@
 
 pub mod toolkit;
 pub mod ops;
+pub mod workflow;
 
 // Modules will be added incrementally:
 // pub mod dashboard;
 // pub mod explorer;
-// pub mod ops;
-// pub mod workflow;
