@@ -480,49 +480,94 @@ fn draw_help_popup(f: &mut Frame, area: Rect, app: &App) {
     let popup_area = centered_rect(72, 64, area);
     f.render_widget(Clear, popup_area);
 
-    let lines = vec![
-        Line::from("Navigation"),
-        Line::from("  Tab / h / l Cycle focus (vim)"),
-        Line::from("  j / k      Move selection (vim)"),
-        Line::from("  gg / G     Top / bottom (vim)"),
-        Line::from("  Ctrl-u/d   Half page up/down (vim)"),
-        Line::from("  Ctrl-b/f   Page up/down (vim)"),
-        Line::from("  [ / ]      Prev/Next section"),
-        Line::from("  1-5        Jump to section"),
-        Line::from("  Enter      Drill / open"),
-        Line::from("  Esc        Back / close"),
-        Line::from("  Mouse      Scroll + click select"),
-        Line::from(""),
-        Line::from("Actions"),
-        Line::from("  /          Search / filter"),
-        Line::from("  Space      Pause/Resume"),
-        Line::from("  f          Pin block (Blocks)"),
-        Line::from("  s          Settings"),
-        Line::from("  a          Reload ABI (Settings)"),
-        Line::from("  [ / ]      Switch RPC (Settings)"),
-        Line::from("  w          Watch address"),
-        Line::from("  n          Label address"),
-        Line::from("  p          Poke balance"),
-        Line::from("  o          Storage slot (Contract)"),
-        Line::from("  t          Trace view (Tx)"),
-        Line::from("  e          Expand/collapse trace"),
-        Line::from("  r          Refresh"),
-        Line::from("  ?          Toggle help"),
-        Line::from("  q          Quit"),
-        Line::from(""),
-        Line::from("Search examples:"),
-        Line::from("  / 12345678"),
-        Line::from("  / 0x<40-hex-address>"),
-        Line::from("  / 0x<64-hex-txhash>"),
-        Line::from(""),
-        Line::from("Filter examples:"),
-        Line::from("  / addr:0x.. method:swap status:revert block:123"),
-        Line::from(""),
-        Line::from(format!("Active section: {}", app.active_section.title())),
-    ];
+    let lines = if app.current_view() == View::Dashboard {
+        // Dashboard-specific help
+        vec![
+            Line::from(Span::styled("Dashboard View", Style::default().fg(Color::LightCyan).add_modifier(Modifier::BOLD))),
+            Line::from(""),
+            Line::from("Panel Navigation"),
+            Line::from("  Tab        Cycle between panels"),
+            Line::from("  j / k      Select activity (Activity panel)"),
+            Line::from("  ↑ / ↓      Select activity (Activity panel)"),
+            Line::from("  Enter      View details of selected item"),
+            Line::from("  f          Enter Explorer (full view)"),
+            Line::from(""),
+            Line::from("Actions"),
+            Line::from("  y          Copy selected item"),
+            Line::from("  w          Watch address"),
+            Line::from("  Space      Pause/Resume"),
+            Line::from("  r          Refresh"),
+            Line::from("  s          Settings"),
+            Line::from("  ?          Toggle help"),
+            Line::from("  q          Quit"),
+            Line::from(""),
+            Line::from("Panels"),
+            Line::from("  NODES      Node status and health"),
+            Line::from("  ACTIVITY   Recent blocks and transactions"),
+            Line::from("  INSPECTOR  Selected item details"),
+            Line::from("  WATCHING   Watched addresses"),
+            Line::from(""),
+            Line::from("Commands"),
+            Line::from("  :health    Check node health"),
+            Line::from("  :peers     Show peer count"),
+            Line::from("  :metrics   View metrics"),
+            Line::from("  :watch     Watch an address"),
+            Line::from(""),
+            Line::from("Press ? to close help"),
+        ]
+    } else {
+        // Explorer-specific help
+        vec![
+            Line::from(Span::styled("Explorer View", Style::default().fg(Color::LightCyan).add_modifier(Modifier::BOLD))),
+            Line::from(""),
+            Line::from("Navigation"),
+            Line::from("  Tab / h / l Cycle focus (vim)"),
+            Line::from("  j / k      Move selection (vim)"),
+            Line::from("  gg / G     Top / bottom (vim)"),
+            Line::from("  Ctrl-u/d   Half page up/down (vim)"),
+            Line::from("  Ctrl-b/f   Page up/down (vim)"),
+            Line::from("  [ / ]      Prev/Next section"),
+            Line::from("  1-5        Jump to section"),
+            Line::from("  Enter      Drill / open"),
+            Line::from("  Esc        Back to Dashboard"),
+            Line::from("  Mouse      Scroll + click select"),
+            Line::from(""),
+            Line::from("Actions"),
+            Line::from("  /          Search / filter"),
+            Line::from("  y          Copy selected item"),
+            Line::from("  Space      Pause/Resume"),
+            Line::from("  f          Pin block (Blocks)"),
+            Line::from("  w          Watch address"),
+            Line::from("  n          Label address"),
+            Line::from("  p          Poke balance"),
+            Line::from("  o          Storage slot (Contract)"),
+            Line::from("  t          Trace view (Tx)"),
+            Line::from("  e          Expand/collapse trace"),
+            Line::from("  r          Refresh"),
+            Line::from("  s          Settings"),
+            Line::from("  ?          Toggle help"),
+            Line::from("  q          Quit"),
+            Line::from(""),
+            Line::from("Search examples:"),
+            Line::from("  / 12345678"),
+            Line::from("  / 0x<40-hex-address>"),
+            Line::from("  / 0x<64-hex-txhash>"),
+            Line::from(""),
+            Line::from("Filter examples:"),
+            Line::from("  / addr:0x.. method:swap status:revert block:123"),
+            Line::from(""),
+            Line::from(format!("Active section: {}", app.active_section.title())),
+        ]
+    };
+
+    let title = if app.current_view() == View::Dashboard {
+        "Help - Dashboard"
+    } else {
+        "Help - Explorer"
+    };
 
     let paragraph = Paragraph::new(Text::from(lines))
-        .block(Block::default().title("Help").borders(Borders::ALL))
+        .block(Block::default().title(title).borders(Borders::ALL))
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: true });
 
