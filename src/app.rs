@@ -1626,21 +1626,23 @@ impl App {
             Command::Address(addr) => Action::Navigate(NavigateTarget::Address(addr.clone())),
             Command::Trace(hash) => Action::Navigate(NavigateTarget::Trace(hash.clone())),
 
-            // Toolkit commands - not yet implemented, show notification
+            // Toolkit commands - implemented
+            Command::Convert(args) => crate::modules::toolkit::convert::convert(args.clone()),
+            Command::Hex(args) => crate::modules::toolkit::hex::hex_convert(args.clone()),
+            Command::Hash(args) => crate::modules::toolkit::hash::hash(args.clone()),
+            Command::Selector(args) => crate::modules::toolkit::selector::selector(args.clone()),
+            Command::FourByte(args) => crate::modules::toolkit::fourbyte::fourbyte(args.clone(), &self.signature_cache),
+            Command::Timestamp(args) => crate::modules::toolkit::timestamp::timestamp(args.clone()),
+            Command::Checksum(args) => crate::modules::toolkit::checksum::checksum(args.clone()),
+
+            // Toolkit commands - not yet implemented
             Command::Encode(_) => Action::Notify("Encode: coming soon".into(), NotifyLevel::Info),
             Command::Decode(_) => Action::Notify("Decode: coming soon".into(), NotifyLevel::Info),
-            Command::Hash(_) => Action::Notify("Hash: coming soon".into(), NotifyLevel::Info),
-            Command::Hex(_) => Action::Notify("Hex: coming soon".into(), NotifyLevel::Info),
-            Command::Selector(_) => Action::Notify("Selector: coming soon".into(), NotifyLevel::Info),
-            Command::FourByte(_) => Action::Notify("4byte: coming soon".into(), NotifyLevel::Info),
-            Command::Convert(_) => Action::Notify("Convert: coming soon".into(), NotifyLevel::Info),
-            Command::Timestamp(_) => Action::Notify("Timestamp: coming soon".into(), NotifyLevel::Info),
             Command::Call(_) => Action::Notify("Call: coming soon".into(), NotifyLevel::Info),
             Command::Gas(_) => Action::Notify("Gas: coming soon".into(), NotifyLevel::Info),
             Command::Slot(_) => Action::Notify("Slot: coming soon".into(), NotifyLevel::Info),
             Command::Create(_) => Action::Notify("Create: coming soon".into(), NotifyLevel::Info),
             Command::Create2(_) => Action::Notify("Create2: coming soon".into(), NotifyLevel::Info),
-            Command::Checksum(_) => Action::Notify("Checksum: coming soon".into(), NotifyLevel::Info),
 
             // Ops commands - not yet implemented
             Command::Health => Action::Notify("Health: coming soon".into(), NotifyLevel::Info),
