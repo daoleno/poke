@@ -677,6 +677,18 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
             // Copy selected item to clipboard
             handle_copy_to_clipboard(app);
         }
+        (KeyCode::Char('e'), _) => {
+            // Export current view data to file
+            let action = crate::modules::export::export_current_view(app);
+            if let crate::core::Action::Notify(msg, level) = action {
+                let status_level = match level {
+                    crate::core::NotifyLevel::Info => StatusLevel::Info,
+                    crate::core::NotifyLevel::Warn => StatusLevel::Warn,
+                    crate::core::NotifyLevel::Error => StatusLevel::Error,
+                };
+                app.set_status(msg, status_level);
+            }
+        }
         (KeyCode::Char('p'), _) => {
             if let Some(address) = context_address(app) {
                 app.request_balance(address);
@@ -701,7 +713,8 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
                 app.set_status("Trace is available for transactions", StatusLevel::Warn);
             }
         }
-        (KeyCode::Char('e'), _) => {
+        (KeyCode::Char('c'), _) => {
+            // Collapse/expand in Trace view
             if app.current_view() == View::Trace {
                 app.toggle_trace_collapse();
             }
