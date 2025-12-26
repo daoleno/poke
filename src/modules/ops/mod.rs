@@ -1,9 +1,15 @@
 //! Operations monitoring commands
 
+pub mod alerts;
 pub mod health;
+pub mod logs;
 pub mod mempool;
+pub mod metrics;
 pub mod peers;
 pub mod rpc_stats;
+
+pub use alerts::AlertChecker;
+pub use metrics::MetricsCollector;
 
 use crate::core::{Action, NotifyLevel};
 
