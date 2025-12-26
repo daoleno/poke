@@ -1,6 +1,7 @@
 //! Operations monitoring commands
 
 pub mod health;
+pub mod peers;
 
 use crate::core::{Action, NotifyLevel};
 
