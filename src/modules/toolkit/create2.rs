@@ -98,7 +98,7 @@ mod tests {
         // Known result for all zeros
         assert_eq!(
             addr,
-            "0xe33c0c7f7df4809055c3eba6c09cfe4baf1bd9e0".parse().unwrap()
+            "0xe33c0c7f7df4809055c3eba6c09cfe4baf1bd9e0".parse::<Address>().unwrap()
         );
     }
 
@@ -113,7 +113,7 @@ mod tests {
         // Should produce different address
         assert_ne!(
             addr,
-            "0xe33c0c7f7df4809055c3eba6c09cfe4baf1bd9e0".parse().unwrap()
+            "0xe33c0c7f7df4809055c3eba6c09cfe4baf1bd9e0".parse::<Address>().unwrap()
         );
     }
 }
