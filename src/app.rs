@@ -906,6 +906,17 @@ impl App {
             self.exit_command();
             return;
         }
+
+        // Try as a : command first (blocks, encode, health, etc.)
+        let cmd = crate::core::parse_command(&input);
+        if !matches!(cmd, crate::core::Command::Unknown(_)) {
+            let action = self.execute_command(&cmd);
+            self.apply_action(action);
+            self.command.last = Some(input);
+            self.exit_command();
+            return;
+        }
+
         let lowered = input.to_lowercase();
         if matches!(lowered.as_str(), "clear" | "reset" | "none") {
             self.active_filter = None;
@@ -1604,6 +1615,124 @@ impl App {
 }
 
 impl App {
+    /// Execute a parsed command
+    pub fn execute_command(&mut self, cmd: &crate::core::Command) -> crate::core::Action {
+        use crate::core::{Action, Command, NavigateTarget, NotifyLevel};
+
+        match cmd {
+            // Navigation commands
+            Command::Blocks => Action::Navigate(NavigateTarget::Blocks),
+            Command::Transactions => Action::Navigate(NavigateTarget::Transactions),
+            Command::Address(addr) => Action::Navigate(NavigateTarget::Address(addr.clone())),
+            Command::Trace(hash) => Action::Navigate(NavigateTarget::Trace(hash.clone())),
+
+            // Toolkit commands - not yet implemented, show notification
+            Command::Encode(_) => Action::Notify("Encode: coming soon".into(), NotifyLevel::Info),
+            Command::Decode(_) => Action::Notify("Decode: coming soon".into(), NotifyLevel::Info),
+            Command::Hash(_) => Action::Notify("Hash: coming soon".into(), NotifyLevel::Info),
+            Command::Hex(_) => Action::Notify("Hex: coming soon".into(), NotifyLevel::Info),
+            Command::Selector(_) => Action::Notify("Selector: coming soon".into(), NotifyLevel::Info),
+            Command::FourByte(_) => Action::Notify("4byte: coming soon".into(), NotifyLevel::Info),
+            Command::Convert(_) => Action::Notify("Convert: coming soon".into(), NotifyLevel::Info),
+            Command::Timestamp(_) => Action::Notify("Timestamp: coming soon".into(), NotifyLevel::Info),
+            Command::Call(_) => Action::Notify("Call: coming soon".into(), NotifyLevel::Info),
+            Command::Gas(_) => Action::Notify("Gas: coming soon".into(), NotifyLevel::Info),
+            Command::Slot(_) => Action::Notify("Slot: coming soon".into(), NotifyLevel::Info),
+            Command::Create(_) => Action::Notify("Create: coming soon".into(), NotifyLevel::Info),
+            Command::Create2(_) => Action::Notify("Create2: coming soon".into(), NotifyLevel::Info),
+            Command::Checksum(_) => Action::Notify("Checksum: coming soon".into(), NotifyLevel::Info),
+
+            // Ops commands - not yet implemented
+            Command::Health => Action::Notify("Health: coming soon".into(), NotifyLevel::Info),
+            Command::Peers => Action::Notify("Peers: coming soon".into(), NotifyLevel::Info),
+            Command::Logs => Action::Notify("Logs: coming soon".into(), NotifyLevel::Info),
+            Command::Mempool => Action::Notify("Mempool: coming soon".into(), NotifyLevel::Info),
+            Command::RpcStats => Action::Notify("RPC Stats: coming soon".into(), NotifyLevel::Info),
+
+            // Node management - not yet implemented
+            Command::Connect(_) => Action::Notify("Connect: coming soon".into(), NotifyLevel::Info),
+            Command::Anvil(_) => Action::Notify("Anvil: coming soon".into(), NotifyLevel::Info),
+            Command::Impersonate(_) => Action::Notify("Impersonate: coming soon".into(), NotifyLevel::Info),
+            Command::Mine(_) => Action::Notify("Mine: coming soon".into(), NotifyLevel::Info),
+            Command::Snapshot => Action::Notify("Snapshot: coming soon".into(), NotifyLevel::Info),
+            Command::Revert(_) => Action::Notify("Revert: coming soon".into(), NotifyLevel::Info),
+
+            Command::Unknown(s) => Action::Notify(format!("Unknown command: {}", s), NotifyLevel::Warn),
+        }
+    }
+
+    /// Apply an action returned by a command or module
+    pub fn apply_action(&mut self, action: crate::core::Action) {
+        use crate::core::{Action, NavigateTarget, NotifyLevel};
+
+        match action {
+            Action::None => {}
+            Action::Navigate(target) => match target {
+                NavigateTarget::Back => self.pop_view(),
+                NavigateTarget::Dashboard => {
+                    self.view_stack = vec![View::Overview];
+                    self.active_section = Section::Overview;
+                }
+                NavigateTarget::Blocks => {
+                    self.view_stack = vec![View::Overview];
+                    self.active_section = Section::Blocks;
+                    self.focus = Focus::List;
+                }
+                NavigateTarget::Transactions => {
+                    self.view_stack = vec![View::Overview];
+                    self.active_section = Section::Transactions;
+                    self.focus = Focus::List;
+                }
+                NavigateTarget::Block(num) => {
+                    if let Some(idx) = self.blocks.iter().position(|b| b.number == num) {
+                        self.selected_block = idx;
+                        self.active_section = Section::Blocks;
+                        self.push_view(View::BlockDetail);
+                    }
+                }
+                NavigateTarget::Transaction(hash) => {
+                    if let Some(idx) = self.txs.iter().position(|t| t.hash == hash) {
+                        self.selected_tx = idx;
+                        self.active_section = Section::Transactions;
+                        self.push_view(View::TxDetail);
+                    }
+                }
+                NavigateTarget::Address(addr) => {
+                    self.set_status(format!("Navigate to address: {}", addr), StatusLevel::Info);
+                }
+                NavigateTarget::Trace(hash) => {
+                    self.pending_trace_request = Some(hash);
+                }
+            },
+            Action::Copy(text) => {
+                self.ctx.set_clipboard(text.clone());
+                self.set_status("Copied to clipboard", StatusLevel::Info);
+            }
+            Action::Notify(msg, level) => {
+                let level = match level {
+                    NotifyLevel::Info => StatusLevel::Info,
+                    NotifyLevel::Warn => StatusLevel::Warn,
+                    NotifyLevel::Error => StatusLevel::Error,
+                };
+                self.set_status(msg, level);
+            }
+            Action::OpenCommand(prefix) => {
+                self.input_mode = InputMode::Command;
+                self.focus = Focus::Command;
+                if let Some(p) = prefix {
+                    self.command.input = p;
+                }
+            }
+            Action::CloseOverlay => {
+                self.help_open = false;
+                self.settings_open = false;
+            }
+            Action::Quit => {
+                self.should_quit = true;
+            }
+        }
+    }
+
     pub fn take_endpoint_switch_request(&mut self) -> Option<usize> {
         self.pending_endpoint_switch.take()
     }
