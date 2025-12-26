@@ -5,6 +5,7 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragra
 use ratatui::Frame;
 
 pub mod layout;
+pub mod widgets;
 
 use crate::app::{
     AddressKind, App, CallStatus, Focus, InputMode, ListKind, PromptKind, Section, StatusLevel,
