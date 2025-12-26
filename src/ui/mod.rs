@@ -15,6 +15,15 @@ use crate::config;
 
 pub fn draw(f: &mut Frame, app: &App) {
     let size = f.size();
+
+    // Check if we're in dashboard view
+    if app.current_view() == View::Dashboard {
+        // Render dashboard (full screen, no header/sidebar)
+        draw_dashboard(f, size, app);
+        return;
+    }
+
+    // Original explorer layout
     let areas = layout::areas(size);
 
     draw_header(f, areas.header, app);
@@ -29,6 +38,35 @@ pub fn draw(f: &mut Frame, app: &App) {
     }
     if app.settings_open {
         draw_settings_popup(f, areas.size, app);
+    }
+}
+
+fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
+    use crate::core::Module;
+
+    // Split area for dashboard and status/command line
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(10),
+            Constraint::Length(1),  // status line
+            Constraint::Length(1),  // command line
+        ])
+        .split(area);
+
+    // Render dashboard
+    let dashboard = app.dashboard.clone();
+    dashboard.render(f, chunks[0], &app.ctx);
+
+    // Render status and command line
+    draw_status_line(f, chunks[1], app);
+    draw_command_line(f, chunks[2], app);
+
+    if app.help_open {
+        draw_help_popup(f, area, app);
+    }
+    if app.settings_open {
+        draw_settings_popup(f, area, app);
     }
 }
 
@@ -190,6 +228,7 @@ fn draw_detail_panel(f: &mut Frame, area: Rect, app: &App) {
     };
 
     let title = match app.current_view() {
+        View::Dashboard => "Dashboard",  // Not used in dashboard view
         View::Overview => match app.active_section {
             Section::Overview => "Overview",
             Section::Blocks => "Block Inspector",
@@ -205,6 +244,7 @@ fn draw_detail_panel(f: &mut Frame, area: Rect, app: &App) {
     };
 
     let mut lines = match app.current_view() {
+        View::Dashboard => Vec::new(),  // Not used in dashboard view
         View::Overview => match app.active_section {
             Section::Overview => overview_lines(app),
             Section::Blocks => block_inspector_lines(app),

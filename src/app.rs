@@ -11,6 +11,7 @@ use crate::store::LabelStore;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum View {
+    Dashboard,
     Overview,
     BlockDetail,
     TxDetail,
@@ -431,6 +432,7 @@ pub struct RpcEndpointOption {
 pub struct App {
     /// Shared context for modules
     pub ctx: Context,
+    pub dashboard: crate::modules::dashboard::Dashboard,
     pub view_stack: Vec<View>,
     pub active_section: Section,
     pub focus: Focus,
@@ -493,7 +495,8 @@ impl App {
     pub fn new() -> Self {
         let mut app = Self {
             ctx: Context::new(),
-            view_stack: vec![View::Overview],
+            dashboard: crate::modules::dashboard::Dashboard::new(),
+            view_stack: vec![View::Dashboard],
             active_section: Section::Overview,
             focus: Focus::Sidebar,
             input_mode: InputMode::Normal,
@@ -641,6 +644,7 @@ impl App {
                 View::Trace => {
                     parts.push("Trace".to_string());
                 }
+                View::Dashboard => {}
                 View::Overview => {}
             }
         }

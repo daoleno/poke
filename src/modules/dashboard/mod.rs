@@ -5,7 +5,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DashboardPanel {
     Nodes,
     Activity,
@@ -13,6 +13,7 @@ pub enum DashboardPanel {
     Watching,
 }
 
+#[derive(Clone, Debug)]
 pub struct Dashboard {
     active_panel: DashboardPanel,
 }
