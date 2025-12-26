@@ -1635,9 +1635,11 @@ impl App {
             Command::Timestamp(args) => crate::modules::toolkit::timestamp::timestamp(args.clone()),
             Command::Checksum(args) => crate::modules::toolkit::checksum::checksum(args.clone()),
 
+            // Toolkit commands - Phase 3
+            Command::Encode(args) => crate::modules::toolkit::encode::encode(args.clone()),
+            Command::Decode(args) => crate::modules::toolkit::decode::decode(args.clone(), &self.signature_cache),
+
             // Toolkit commands - not yet implemented
-            Command::Encode(_) => Action::Notify("Encode: coming soon".into(), NotifyLevel::Info),
-            Command::Decode(_) => Action::Notify("Decode: coming soon".into(), NotifyLevel::Info),
             Command::Call(_) => Action::Notify("Call: coming soon".into(), NotifyLevel::Info),
             Command::Gas(_) => Action::Notify("Gas: coming soon".into(), NotifyLevel::Info),
             Command::Slot(_) => Action::Notify("Slot: coming soon".into(), NotifyLevel::Info),
