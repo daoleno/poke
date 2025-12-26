@@ -1,6 +1,7 @@
 //! Toolkit commands for data processing and conversion
 
 pub mod convert;
+pub mod hex;
 
 use crate::core::{Action, NotifyLevel};
 
