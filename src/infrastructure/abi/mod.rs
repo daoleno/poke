@@ -4,6 +4,5 @@ mod decoder;
 mod resolver;
 mod scanner;
 
-pub use decoder::AlloyAbiDecoder;
-pub use resolver::{AbiResolver, ResolvedAbi, ResolvedSignature};
+pub use resolver::AbiResolver;
 pub use scanner::AbiScanner;

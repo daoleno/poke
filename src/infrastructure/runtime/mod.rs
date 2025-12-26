@@ -4,7 +4,5 @@ mod bridge;
 mod worker;
 
 pub use bridge::{
-    BlockInfo, CallStatus, DecodedArg, RuntimeBridge, RuntimeCommand, RuntimeEvent,
-    TokenBalance, TokenConfig, TraceFrame, TxInfo, TxStatus,
+    CallStatus, RuntimeBridge, RuntimeCommand, RuntimeEvent, TokenConfig, TraceFrame, TxStatus,
 };
-pub use worker::run_async_worker;

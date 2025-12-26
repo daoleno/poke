@@ -12,10 +12,9 @@ use alloy::providers::{
     Identity, Provider, ProviderBuilder, RootProvider,
 };
 use alloy::rpc::types::trace::geth::{GethDebugTracingOptions, GethTrace};
-use alloy::rpc::types::{Block, BlockNumberOrTag, TransactionReceipt, TransactionRequest};
+use alloy::rpc::types::{Block, TransactionReceipt, TransactionRequest};
 use anyhow::{Context, Result};
 use futures::StreamExt;
-use serde::Deserialize;
 use tokio::sync::mpsc;
 
 use crate::infrastructure::ethereum::types::convert_trace_frames;

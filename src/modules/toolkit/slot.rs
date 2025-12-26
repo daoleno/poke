@@ -1,6 +1,6 @@
 //! Storage slot calculation for Solidity
 
-use alloy::primitives::{keccak256, Address, B256, U256};
+use alloy::primitives::{keccak256, Address, U256};
 use super::ToolResult;
 use crate::core::{Action, NotifyLevel};
 

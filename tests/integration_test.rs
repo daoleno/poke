@@ -6,7 +6,6 @@
 //! 3. selected_block() returns the correct block
 //! 4. tx_scope() filters transactions correctly
 
-use alloy::primitives::U256;
 use alloy::providers::{Provider, ProviderBuilder};
 
 #[tokio::test]

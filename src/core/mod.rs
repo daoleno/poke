@@ -6,4 +6,4 @@ pub mod module;
 pub use action::{Action, NavigateTarget, NotifyLevel};
 pub use command::{parse_command, Command};
 pub use context::{Context, Selected};
-pub use module::{BoxedModule, Module};
+pub use module::Module;

@@ -4,8 +4,6 @@ pub mod anvil;
 pub mod anvil_control;
 pub mod nodes;
 
-pub use anvil::AnvilConfig;
-pub use nodes::NodeConnection;
 
 use crate::core::{Action, NotifyLevel};
 

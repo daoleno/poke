@@ -65,7 +65,7 @@ fn convert_from_decimal(dec_str: &str) -> Action {
     };
 
     let hex_str = format!("{:x}", num);
-    let bytes = hex::decode(&hex_str).unwrap_or_default();
+    let _bytes = hex::decode(&hex_str).unwrap_or_default();
 
     let mut result = ToolResult::new("Hex Convert")
         .add("dec", num.to_string())

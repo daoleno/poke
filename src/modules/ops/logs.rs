@@ -1,7 +1,7 @@
 //! Real-time logs command
 
 use super::{OpsResult, OpsStatus};
-use crate::core::{Action, NotifyLevel};
+use crate::core::Action;
 
 /// Log level filter
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

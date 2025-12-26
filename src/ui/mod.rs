@@ -42,7 +42,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_dashboard(f: &mut Frame, area: Rect, app: &mut App) {
-    use crate::core::Module;
+    
     use crate::modules::dashboard::{ActivityItem, ActivityKind, NodeInfo};
 
     // Split area for dashboard and status/command line
