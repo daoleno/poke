@@ -2,6 +2,7 @@
 
 pub mod health;
 pub mod peers;
+pub mod rpc_stats;
 
 use crate::core::{Action, NotifyLevel};
 
