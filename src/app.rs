@@ -1666,13 +1666,20 @@ impl App {
             // Ops commands - not yet implemented
             Command::Logs => Action::Notify("Logs: coming soon".into(), NotifyLevel::Info),
 
-            // Node management - not yet implemented
-            Command::Connect(_) => Action::Notify("Connect: coming soon".into(), NotifyLevel::Info),
-            Command::Anvil(_) => Action::Notify("Anvil: coming soon".into(), NotifyLevel::Info),
-            Command::Impersonate(_) => Action::Notify("Impersonate: coming soon".into(), NotifyLevel::Info),
-            Command::Mine(_) => Action::Notify("Mine: coming soon".into(), NotifyLevel::Info),
-            Command::Snapshot => Action::Notify("Snapshot: coming soon".into(), NotifyLevel::Info),
-            Command::Revert(_) => Action::Notify("Revert: coming soon".into(), NotifyLevel::Info),
+            // Workflow commands - implemented
+            Command::Connect(url) => crate::modules::workflow::nodes::connect(Some(url.clone())),
+            Command::Anvil(args) => {
+                let args_str = if args.is_empty() {
+                    None
+                } else {
+                    Some(args.join(" "))
+                };
+                crate::modules::workflow::anvil::anvil(args_str)
+            }
+            Command::Impersonate(addr) => crate::modules::workflow::anvil_control::impersonate(Some(addr.clone())),
+            Command::Mine(count) => crate::modules::workflow::anvil_control::mine(count.map(|c| c.to_string())),
+            Command::Snapshot => crate::modules::workflow::anvil_control::snapshot(),
+            Command::Revert(id) => crate::modules::workflow::anvil_control::revert(id.clone()),
 
             Command::Unknown(s) => Action::Notify(format!("Unknown command: {}", s), NotifyLevel::Warn),
         }
