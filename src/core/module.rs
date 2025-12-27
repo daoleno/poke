@@ -1,4 +1,5 @@
 //! Module trait for extensible UI components
+#![allow(dead_code)]
 
 use crossterm::event::KeyEvent;
 use ratatui::layout::Rect;

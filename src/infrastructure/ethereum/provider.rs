@@ -1,4 +1,5 @@
 //! Ethereum provider abstraction and Alloy implementations
+#![allow(dead_code)]
 //!
 //! Uses raw JSON requests for block fetching to support all EVM chains
 //! including L2s like Optimism/Base that have non-standard transaction types.

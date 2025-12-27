@@ -1,4 +1,5 @@
 //! Node health check
+#![allow(dead_code)]
 
 use super::{OpsResult, OpsStatus};
 use crate::core::Action;

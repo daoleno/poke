@@ -1,4 +1,5 @@
 //! Remote ABI resolution via 4byte and Sourcify APIs
+#![allow(dead_code)]
 
 use anyhow::{Context, Result};
 use serde::Deserialize;

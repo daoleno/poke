@@ -1,4 +1,5 @@
 //! Actions that modules can return to communicate with the app
+#![allow(dead_code)]
 
 /// Actions returned by modules to communicate state changes
 #[derive(Debug, Clone)]

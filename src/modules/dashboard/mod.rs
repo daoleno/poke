@@ -1,4 +1,5 @@
 //! Dashboard module - panel-based default view
+#![allow(dead_code)]
 
 use crate::core::{Action, Context, Module};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};

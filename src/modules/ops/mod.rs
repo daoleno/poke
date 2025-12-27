@@ -8,8 +8,6 @@ pub mod metrics;
 pub mod peers;
 pub mod rpc_stats;
 
-pub use metrics::MetricsCollector;
-
 use crate::core::{Action, NotifyLevel};
 
 /// Result of an ops check

@@ -1,4 +1,5 @@
 //! ABI decoder trait and types
+#![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 

@@ -1,4 +1,5 @@
 //! Alert framework for ops monitoring
+#![allow(dead_code)]
 
 use super::{OpsResult, OpsStatus};
 use crate::core::Action;

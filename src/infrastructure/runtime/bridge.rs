@@ -1,4 +1,5 @@
 //! Runtime bridge - connects sync TUI thread with async Tokio runtime
+#![allow(dead_code)]
 //!
 //! This module provides a bridge between the synchronous TUI (ratatui) thread
 //! and the asynchronous Tokio runtime that handles RPC operations.

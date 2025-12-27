@@ -1,4 +1,5 @@
 //! ABI registry - stores function signatures by selector
+#![allow(dead_code)]
 
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -1,4 +1,5 @@
 //! Mini sparkline widget for inline metrics
+#![allow(dead_code)]
 
 use ratatui::{
     buffer::Buffer,

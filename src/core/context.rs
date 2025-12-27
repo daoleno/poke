@@ -1,4 +1,5 @@
 //! Shared context passed to modules
+#![allow(dead_code)]
 
 use std::collections::BTreeMap;
 

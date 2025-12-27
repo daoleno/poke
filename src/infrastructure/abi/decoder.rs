@@ -1,4 +1,5 @@
 //! ABI decoder implementation using alloy-dyn-abi
+#![allow(dead_code)]
 
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use anyhow::{bail, Context, Result};
