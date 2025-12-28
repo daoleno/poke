@@ -1,5 +1,4 @@
 //! Shared context passed to modules
-#![allow(dead_code)]
 
 use std::collections::BTreeMap;
 
@@ -10,7 +9,7 @@ pub enum Selected {
     Block(u64),
     Transaction(String),
     Address(String),
-    TraceFrame { tx: String, index: usize },
+    TraceFrame,
 }
 
 /// Shared context available to all modules
@@ -53,18 +52,8 @@ impl Context {
         Self::default()
     }
 
-    /// Get label for an address if it exists
-    pub fn label_for(&self, address: &str) -> Option<&str> {
-        self.labels.get(&address.to_lowercase()).map(|s| s.as_str())
-    }
-
     /// Set clipboard content
     pub fn set_clipboard(&mut self, content: String) {
         self.clipboard = Some(content);
-    }
-
-    /// Get clipboard content
-    pub fn get_clipboard(&self) -> Option<&str> {
-        self.clipboard.as_deref()
     }
 }

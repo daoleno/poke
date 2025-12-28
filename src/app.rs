@@ -9,6 +9,40 @@ use crate::domain::abi::AbiRegistry;
 use crate::AbiScanRequest;
 use crate::store::LabelStore;
 
+/// Main tabs in the application
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tab {
+    Home,
+    Explorer,
+    Toolkit,
+    Ops,
+    Anvil,
+}
+
+impl Tab {
+    pub const ALL: [Tab; 5] = [Tab::Home, Tab::Explorer, Tab::Toolkit, Tab::Ops, Tab::Anvil];
+
+    pub fn title(&self) -> &'static str {
+        match self {
+            Tab::Home => "Home",
+            Tab::Explorer => "Explorer",
+            Tab::Toolkit => "Toolkit",
+            Tab::Ops => "Ops",
+            Tab::Anvil => "Anvil",
+        }
+    }
+
+    pub fn shortcut(&self) -> char {
+        match self {
+            Tab::Home => '1',
+            Tab::Explorer => '2',
+            Tab::Toolkit => '3',
+            Tab::Ops => '4',
+            Tab::Anvil => '5',
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum View {
     Dashboard,
@@ -423,6 +457,157 @@ pub struct StorageRequest {
     pub slot: String,
 }
 
+/// Sections in the Explorer tab sidebar
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExplorerSection {
+    Blocks,
+    Transactions,
+    Addresses,
+    Contracts,
+}
+
+impl ExplorerSection {
+    pub const ALL: [ExplorerSection; 4] = [
+        ExplorerSection::Blocks,
+        ExplorerSection::Transactions,
+        ExplorerSection::Addresses,
+        ExplorerSection::Contracts,
+    ];
+
+    pub fn title(&self) -> &'static str {
+        match self {
+            ExplorerSection::Blocks => "Blocks",
+            ExplorerSection::Transactions => "Txs",
+            ExplorerSection::Addresses => "Addrs",
+            ExplorerSection::Contracts => "Contracts",
+        }
+    }
+}
+
+/// Tools in the Toolkit tab
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolkitTool {
+    Encode,
+    Decode,
+    Hash,
+    Hex,
+    Selector,
+    FourByte,
+    Convert,
+    Timestamp,
+    Call,
+    Gas,
+    Slot,
+    Create,
+    Create2,
+    Checksum,
+}
+
+impl ToolkitTool {
+    pub const ALL: [ToolkitTool; 14] = [
+        ToolkitTool::Encode,
+        ToolkitTool::Decode,
+        ToolkitTool::Hash,
+        ToolkitTool::Hex,
+        ToolkitTool::Selector,
+        ToolkitTool::FourByte,
+        ToolkitTool::Convert,
+        ToolkitTool::Timestamp,
+        ToolkitTool::Call,
+        ToolkitTool::Gas,
+        ToolkitTool::Slot,
+        ToolkitTool::Create,
+        ToolkitTool::Create2,
+        ToolkitTool::Checksum,
+    ];
+
+    pub fn title(&self) -> &'static str {
+        match self {
+            ToolkitTool::Encode => "encode",
+            ToolkitTool::Decode => "decode",
+            ToolkitTool::Hash => "hash",
+            ToolkitTool::Hex => "hex",
+            ToolkitTool::Selector => "selector",
+            ToolkitTool::FourByte => "4byte",
+            ToolkitTool::Convert => "convert",
+            ToolkitTool::Timestamp => "time",
+            ToolkitTool::Call => "call",
+            ToolkitTool::Gas => "gas",
+            ToolkitTool::Slot => "slot",
+            ToolkitTool::Create => "create",
+            ToolkitTool::Create2 => "create2",
+            ToolkitTool::Checksum => "checksum",
+        }
+    }
+
+    pub fn category(&self) -> &'static str {
+        match self {
+            ToolkitTool::Encode | ToolkitTool::Decode => "ABI",
+            ToolkitTool::Hash | ToolkitTool::Hex | ToolkitTool::Selector | ToolkitTool::FourByte => "HASH",
+            ToolkitTool::Convert | ToolkitTool::Timestamp | ToolkitTool::Checksum => "CONVERT",
+            ToolkitTool::Call | ToolkitTool::Gas | ToolkitTool::Slot | ToolkitTool::Create | ToolkitTool::Create2 => "CONTRACT",
+        }
+    }
+}
+
+/// State for the Toolkit tab
+#[derive(Debug, Clone)]
+pub struct ToolkitState {
+    pub selected_tool: ToolkitTool,
+    pub input: String,
+    pub output: String,
+    pub history: Vec<String>,
+    pub history_index: Option<usize>,
+}
+
+impl Default for ToolkitState {
+    fn default() -> Self {
+        Self {
+            selected_tool: ToolkitTool::Encode,
+            input: String::new(),
+            output: String::new(),
+            history: Vec::new(),
+            history_index: None,
+        }
+    }
+}
+
+/// Sections in the Ops tab sidebar
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpsSection {
+    Health,
+    Peers,
+    Mempool,
+    Logs,
+    Metrics,
+    Alerts,
+    RpcStats,
+}
+
+impl OpsSection {
+    pub const ALL: [OpsSection; 7] = [
+        OpsSection::Health,
+        OpsSection::Peers,
+        OpsSection::Mempool,
+        OpsSection::Logs,
+        OpsSection::Metrics,
+        OpsSection::Alerts,
+        OpsSection::RpcStats,
+    ];
+
+    pub fn title(&self) -> &'static str {
+        match self {
+            OpsSection::Health => "health",
+            OpsSection::Peers => "peers",
+            OpsSection::Mempool => "mempool",
+            OpsSection::Logs => "logs",
+            OpsSection::Metrics => "metrics",
+            OpsSection::Alerts => "alerts",
+            OpsSection::RpcStats => "rpc-stats",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RpcEndpointOption {
     pub label: String,
@@ -433,7 +618,15 @@ pub struct RpcEndpointOption {
 pub struct App {
     /// Shared context for modules
     pub ctx: Context,
+    /// Current active tab
+    pub current_tab: Tab,
     pub dashboard: crate::modules::dashboard::Dashboard,
+    /// Explorer tab sidebar selection (Blocks, Txs, Addrs, Contracts)
+    pub explorer_section: ExplorerSection,
+    /// Toolkit tab state
+    pub toolkit_state: ToolkitState,
+    /// Ops tab state
+    pub ops_section: OpsSection,
     pub view_stack: Vec<View>,
     pub active_section: Section,
     pub focus: Focus,
@@ -496,7 +689,11 @@ impl App {
     pub fn new() -> Self {
         let mut app = Self {
             ctx: Context::new(),
+            current_tab: Tab::Home,
             dashboard: crate::modules::dashboard::Dashboard::new(),
+            explorer_section: ExplorerSection::Blocks,
+            toolkit_state: ToolkitState::default(),
+            ops_section: OpsSection::Health,
             view_stack: vec![View::Dashboard],
             active_section: Section::Overview,
             focus: Focus::Sidebar,
@@ -531,9 +728,9 @@ impl App {
             rpc_endpoints: Vec::new(),
             rpc_endpoint_index: 0,
             node_kind: "unknown".to_string(),
-            last_rtt_ms: Some(28),
-            peer_count: 12,
-            sync_progress: 0.42,
+            last_rtt_ms: None,
+            peer_count: 0,
+            sync_progress: 0.0,
             status: None,
             pending_chord: None,
             pending_endpoint_switch: None,
@@ -589,16 +786,7 @@ impl App {
                     crate::core::Selected::None
                 }
             }
-            View::Trace => {
-                if let Some(tx) = self.txs.get(self.selected_tx) {
-                    crate::core::Selected::TraceFrame {
-                        tx: tx.hash.clone(),
-                        index: self.selected_trace,
-                    }
-                } else {
-                    crate::core::Selected::None
-                }
-            }
+            View::Trace => crate::core::Selected::TraceFrame,
             _ => crate::core::Selected::None,
         };
     }
@@ -1711,11 +1899,6 @@ impl App {
         match action {
             Action::None => {}
             Action::Navigate(target) => match target {
-                NavigateTarget::Back => self.pop_view(),
-                NavigateTarget::Dashboard => {
-                    self.view_stack = vec![View::Overview];
-                    self.active_section = Section::Overview;
-                }
                 NavigateTarget::Blocks => {
                     self.view_stack = vec![View::Overview];
                     self.active_section = Section::Blocks;
@@ -1747,10 +1930,6 @@ impl App {
                     self.pending_trace_request = Some(hash);
                 }
             },
-            Action::Copy(text) => {
-                self.ctx.set_clipboard(text.clone());
-                self.set_status("Copied to clipboard", StatusLevel::Info);
-            }
             Action::Notify(msg, level) => {
                 let level = match level {
                     NotifyLevel::Info => StatusLevel::Info,
@@ -1758,20 +1937,6 @@ impl App {
                     NotifyLevel::Error => StatusLevel::Error,
                 };
                 self.set_status(msg, level);
-            }
-            Action::OpenCommand(prefix) => {
-                self.input_mode = InputMode::Command;
-                self.focus = Focus::Command;
-                if let Some(p) = prefix {
-                    self.command.input = p;
-                }
-            }
-            Action::CloseOverlay => {
-                self.help_open = false;
-                self.settings_open = false;
-            }
-            Action::Quit => {
-                self.should_quit = true;
             }
         }
     }

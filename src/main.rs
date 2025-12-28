@@ -587,12 +587,26 @@ fn handle_mouse(app: &mut App, mouse: MouseEvent) {
     {
         return;
     }
+
+    let col = mouse.column;
+    let row = mouse.row;
+
+    // Handle tab-based UI mouse events
+    if app.current_view() == View::Dashboard {
+        match mouse.kind {
+            MouseEventKind::Down(MouseButton::Left) => handle_tab_click(app, col, row),
+            MouseEventKind::ScrollUp => handle_tab_scroll(app, true),
+            MouseEventKind::ScrollDown => handle_tab_scroll(app, false),
+            _ => {}
+        }
+        return;
+    }
+
+    // Original explorer mouse handling
     let Some(size) = terminal_rect() else {
         return;
     };
     let areas = ui::layout::areas(size);
-    let col = mouse.column;
-    let row = mouse.row;
 
     match mouse.kind {
         MouseEventKind::Down(MouseButton::Left) => handle_click(app, areas, col, row),
@@ -602,9 +616,184 @@ fn handle_mouse(app: &mut App, mouse: MouseEvent) {
     }
 }
 
+fn handle_tab_click(app: &mut App, col: u16, row: u16) {
+    use crate::app::{ExplorerSection, OpsSection, Tab, ToolkitTool};
+
+    // Tab bar is in row 0
+    if row == 0 {
+        // Calculate tab positions based on tab titles
+        // Format: "1:Home | 2:Explorer | 3:Toolkit | 4:Ops | 5:Anvil"
+        let tabs = [
+            (Tab::Home, "1:Home"),
+            (Tab::Explorer, "2:Explorer"),
+            (Tab::Toolkit, "3:Toolkit"),
+            (Tab::Ops, "4:Ops"),
+            (Tab::Anvil, "5:Anvil"),
+        ];
+
+        let mut x = 0u16;
+        for (tab, title) in tabs {
+            let tab_width = title.len() as u16 + 3; // title + " | "
+            if col >= x && col < x + tab_width {
+                app.current_tab = tab;
+                return;
+            }
+            x += tab_width;
+        }
+        return;
+    }
+
+    // Content area starts at row 1 (after tab bar)
+    // Row 1 is the status bar border in Home tab, or sidebar border in others
+    // Actual clickable items start at row 3+ (border + blank line + items)
+
+    match app.current_tab {
+        Tab::Explorer => {
+            // Explorer sidebar: columns 0-12, sections start at row 3
+            if col < 12 && row >= 3 {
+                let section_idx = (row - 3) as usize;
+                if let Some(section) = ExplorerSection::ALL.get(section_idx) {
+                    app.explorer_section = *section;
+                }
+            }
+        }
+        Tab::Toolkit => {
+            // Toolkit sidebar: columns 0-14
+            // Tools are listed with category headers, so we need to map rows to tools
+            if col < 14 && row >= 3 {
+                // Simplified: just map row to tool index (skipping category headers)
+                // Real mapping would need to account for category structure
+                let tool_idx = (row - 3) as usize;
+                if tool_idx < ToolkitTool::ALL.len() {
+                    app.toolkit_state.selected_tool = ToolkitTool::ALL[tool_idx];
+                }
+            }
+        }
+        Tab::Ops => {
+            // Ops sidebar: columns 0-14, sections start at row 3
+            if col < 14 && row >= 3 {
+                let section_idx = (row - 3) as usize;
+                if let Some(section) = OpsSection::ALL.get(section_idx) {
+                    app.ops_section = *section;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_tab_scroll(app: &mut App, up: bool) {
+    // Scroll within tab content
+    if up {
+        handle_tab_nav_up(app);
+    } else {
+        handle_tab_nav_down(app);
+    }
+}
+
 fn handle_normal_mode(app: &mut App, key: KeyEvent) {
+    use crate::app::Tab;
+
     if key.code != KeyCode::Char('g') {
         app.clear_chord();
+    }
+
+    // Tab-based UI handling (only in Dashboard view)
+    if app.current_view() == View::Dashboard {
+        // Explorer tab uses the full explorer navigation
+        let in_explorer_tab = app.current_tab == Tab::Explorer;
+
+        match key.code {
+            // Tab switching with number keys (only when NOT in Explorer tab, or use different keys)
+            KeyCode::Char('1') if !in_explorer_tab => {
+                app.current_tab = Tab::Home;
+                return;
+            }
+            KeyCode::Char('2') if !in_explorer_tab => {
+                app.current_tab = Tab::Explorer;
+                return;
+            }
+            KeyCode::Char('3') if !in_explorer_tab => {
+                app.current_tab = Tab::Toolkit;
+                return;
+            }
+            KeyCode::Char('4') if !in_explorer_tab => {
+                app.current_tab = Tab::Ops;
+                return;
+            }
+            KeyCode::Char('5') if !in_explorer_tab => {
+                app.current_tab = Tab::Anvil;
+                return;
+            }
+            // Quick navigation shortcuts (switch to Explorer and set section)
+            KeyCode::Char('b') if !in_explorer_tab => {
+                app.current_tab = Tab::Explorer;
+                app.set_section(Section::Blocks);
+                return;
+            }
+            KeyCode::Char('t') if !in_explorer_tab => {
+                app.current_tab = Tab::Explorer;
+                app.set_section(Section::Transactions);
+                return;
+            }
+            KeyCode::Char('a') if !in_explorer_tab => {
+                app.current_tab = Tab::Explorer;
+                app.set_section(Section::Addresses);
+                return;
+            }
+            // Vim navigation - Explorer tab uses full explorer nav, others use tab nav
+            KeyCode::Char('j') | KeyCode::Down if !in_explorer_tab => {
+                handle_tab_nav_down(app);
+                return;
+            }
+            KeyCode::Char('k') | KeyCode::Up if !in_explorer_tab => {
+                handle_tab_nav_up(app);
+                return;
+            }
+            KeyCode::Char('h') | KeyCode::Left if !in_explorer_tab => {
+                handle_tab_nav_left(app);
+                return;
+            }
+            KeyCode::Char('l') | KeyCode::Right if !in_explorer_tab => {
+                handle_tab_nav_right(app);
+                return;
+            }
+            KeyCode::Tab if !in_explorer_tab => {
+                // Cycle through tabs
+                app.current_tab = match app.current_tab {
+                    Tab::Home => Tab::Explorer,
+                    Tab::Explorer => Tab::Toolkit,
+                    Tab::Toolkit => Tab::Ops,
+                    Tab::Ops => Tab::Anvil,
+                    Tab::Anvil => Tab::Home,
+                };
+                return;
+            }
+            KeyCode::BackTab if !in_explorer_tab => {
+                // Cycle backwards through tabs
+                app.current_tab = match app.current_tab {
+                    Tab::Home => Tab::Anvil,
+                    Tab::Explorer => Tab::Home,
+                    Tab::Toolkit => Tab::Explorer,
+                    Tab::Ops => Tab::Toolkit,
+                    Tab::Anvil => Tab::Ops,
+                };
+                return;
+            }
+            KeyCode::Enter if !in_explorer_tab => {
+                handle_tab_enter(app);
+                return;
+            }
+            KeyCode::Esc if in_explorer_tab => {
+                // From Explorer tab, Esc goes back to Home tab
+                app.current_tab = Tab::Home;
+                return;
+            }
+            _ => {}
+        }
+
+        // If in Explorer tab, fall through to normal explorer handling below
+        // (Don't return early, let the normal key handling take over)
     }
 
     match (key.code, key.modifiers) {
@@ -638,10 +827,8 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
         (KeyCode::Char('f'), _) => {
             // 'f' key behavior depends on current view
             if app.current_view() == View::Dashboard {
-                // From Dashboard: enter Explorer (Blocks view)
-                app.push_view(View::Overview);
-                app.set_section(Section::Blocks);
-                app.focus = Focus::List;
+                // From Dashboard: switch to Explorer tab
+                app.current_tab = Tab::Explorer;
             } else if app.list_kind() == ListKind::Blocks {
                 // In Explorer Blocks view: toggle pin
                 app.toggle_pin();
@@ -1115,5 +1302,194 @@ fn handle_copy_to_clipboard(app: &mut App) {
         }
     } else {
         app.set_status("Nothing to copy", StatusLevel::Warn);
+    }
+}
+
+// ============================================================================
+// Tab navigation helpers
+// ============================================================================
+
+fn handle_tab_nav_down(app: &mut App) {
+    use crate::app::{ExplorerSection, OpsSection, Tab, ToolkitTool};
+
+    match app.current_tab {
+        Tab::Explorer => {
+            // Navigate list items within current section
+            match app.explorer_section {
+                ExplorerSection::Blocks => {
+                    if app.selected_block + 1 < app.blocks.len() {
+                        app.selected_block += 1;
+                    }
+                }
+                ExplorerSection::Transactions => {
+                    if app.selected_tx + 1 < app.txs.len() {
+                        app.selected_tx += 1;
+                    }
+                }
+                ExplorerSection::Addresses => {
+                    if app.selected_address + 1 < app.addresses.len() {
+                        app.selected_address += 1;
+                    }
+                }
+                ExplorerSection::Contracts => {
+                    if app.selected_contract + 1 < app.contracts.len() {
+                        app.selected_contract += 1;
+                    }
+                }
+            }
+        }
+        Tab::Toolkit => {
+            // Cycle through Toolkit tools
+            let tools = ToolkitTool::ALL;
+            let current_idx = tools.iter().position(|t| *t == app.toolkit_state.selected_tool).unwrap_or(0);
+            let next_idx = (current_idx + 1) % tools.len();
+            app.toolkit_state.selected_tool = tools[next_idx];
+        }
+        Tab::Ops => {
+            // Cycle through Ops sections
+            app.ops_section = match app.ops_section {
+                OpsSection::Health => OpsSection::Peers,
+                OpsSection::Peers => OpsSection::Mempool,
+                OpsSection::Mempool => OpsSection::Logs,
+                OpsSection::Logs => OpsSection::Metrics,
+                OpsSection::Metrics => OpsSection::Alerts,
+                OpsSection::Alerts => OpsSection::RpcStats,
+                OpsSection::RpcStats => OpsSection::Health,
+            };
+        }
+        Tab::Home => {
+            // In Home, navigate the live feed
+            if app.selected_block + 1 < app.blocks.len() {
+                app.selected_block += 1;
+            }
+        }
+        Tab::Anvil => {}
+    }
+}
+
+fn handle_tab_nav_up(app: &mut App) {
+    use crate::app::{ExplorerSection, OpsSection, Tab, ToolkitTool};
+
+    match app.current_tab {
+        Tab::Explorer => {
+            // Navigate list items within current section
+            match app.explorer_section {
+                ExplorerSection::Blocks => {
+                    if app.selected_block > 0 {
+                        app.selected_block -= 1;
+                    }
+                }
+                ExplorerSection::Transactions => {
+                    if app.selected_tx > 0 {
+                        app.selected_tx -= 1;
+                    }
+                }
+                ExplorerSection::Addresses => {
+                    if app.selected_address > 0 {
+                        app.selected_address -= 1;
+                    }
+                }
+                ExplorerSection::Contracts => {
+                    if app.selected_contract > 0 {
+                        app.selected_contract -= 1;
+                    }
+                }
+            }
+        }
+        Tab::Toolkit => {
+            let tools = ToolkitTool::ALL;
+            let current_idx = tools.iter().position(|t| *t == app.toolkit_state.selected_tool).unwrap_or(0);
+            let prev_idx = if current_idx == 0 { tools.len() - 1 } else { current_idx - 1 };
+            app.toolkit_state.selected_tool = tools[prev_idx];
+        }
+        Tab::Ops => {
+            app.ops_section = match app.ops_section {
+                OpsSection::Health => OpsSection::RpcStats,
+                OpsSection::Peers => OpsSection::Health,
+                OpsSection::Mempool => OpsSection::Peers,
+                OpsSection::Logs => OpsSection::Mempool,
+                OpsSection::Metrics => OpsSection::Logs,
+                OpsSection::Alerts => OpsSection::Metrics,
+                OpsSection::RpcStats => OpsSection::Alerts,
+            };
+        }
+        Tab::Home => {
+            if app.selected_block > 0 {
+                app.selected_block -= 1;
+            }
+        }
+        Tab::Anvil => {}
+    }
+}
+
+fn handle_tab_nav_left(app: &mut App) {
+    use crate::app::Tab;
+
+    // Move to previous tab
+    app.current_tab = match app.current_tab {
+        Tab::Home => Tab::Anvil,
+        Tab::Explorer => Tab::Home,
+        Tab::Toolkit => Tab::Explorer,
+        Tab::Ops => Tab::Toolkit,
+        Tab::Anvil => Tab::Ops,
+    };
+}
+
+fn handle_tab_nav_right(app: &mut App) {
+    use crate::app::Tab;
+
+    // Move to next tab
+    app.current_tab = match app.current_tab {
+        Tab::Home => Tab::Explorer,
+        Tab::Explorer => Tab::Toolkit,
+        Tab::Toolkit => Tab::Ops,
+        Tab::Ops => Tab::Anvil,
+        Tab::Anvil => Tab::Home,
+    };
+}
+
+fn handle_tab_enter(app: &mut App) {
+    use crate::app::{ExplorerSection, Tab};
+
+    match app.current_tab {
+        Tab::Explorer => {
+            // Enter opens the full detail view for richer exploration
+            match app.explorer_section {
+                ExplorerSection::Blocks => {
+                    if !app.blocks.is_empty() {
+                        // Sync section before entering detail view
+                        app.set_section(Section::Blocks);
+                        app.push_view(View::BlockDetail);
+                    }
+                }
+                ExplorerSection::Transactions => {
+                    if !app.txs.is_empty() {
+                        app.set_section(Section::Transactions);
+                        app.push_view(View::TxDetail);
+                    }
+                }
+                ExplorerSection::Addresses => {
+                    if !app.addresses.is_empty() {
+                        app.set_section(Section::Addresses);
+                        app.push_view(View::AddressDetail);
+                    }
+                }
+                ExplorerSection::Contracts => {
+                    if !app.contracts.is_empty() {
+                        app.set_section(Section::Contracts);
+                        app.push_view(View::ContractDetail);
+                    }
+                }
+            }
+        }
+        Tab::Home => {
+            // From Home, enter the full explorer with Blocks section
+            app.set_section(Section::Blocks);
+            app.push_view(View::Overview);
+        }
+        Tab::Toolkit => {
+            app.set_status("Press / to enter command for this tool", StatusLevel::Info);
+        }
+        _ => {}
     }
 }

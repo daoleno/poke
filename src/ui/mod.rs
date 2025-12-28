@@ -5,25 +5,25 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragra
 use ratatui::Frame;
 
 pub mod layout;
+pub mod tabs;
 pub mod widgets;
 
 use crate::app::{
     AddressKind, App, CallStatus, Focus, InputMode, ListKind, PromptKind, Section, StatusLevel,
-    TxStatus, View,
+    Tab, TxStatus, View,
 };
 use crate::config;
 
 pub fn draw(f: &mut Frame, app: &mut App) {
     let size = f.size();
 
-    // Check if we're in dashboard view
+    // Check if we're in dashboard view (tab-based UI)
     if app.current_view() == View::Dashboard {
-        // Render dashboard (full screen, no header/sidebar)
-        draw_dashboard(f, size, app);
+        draw_tabbed_ui(f, size, app);
         return;
     }
 
-    // Original explorer layout
+    // Original explorer layout for detail views
     let areas = layout::areas(size);
 
     draw_header(f, areas.header, app);
@@ -41,79 +41,39 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     }
 }
 
-fn draw_dashboard(f: &mut Frame, area: Rect, app: &mut App) {
-    
-    use crate::modules::dashboard::{ActivityItem, ActivityKind, NodeInfo};
-
-    // Split area for dashboard and status/command line
+/// Draw the new tab-based UI
+fn draw_tabbed_ui(f: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(10),
-            Constraint::Length(1),  // status line
-            Constraint::Length(1),  // command line
+            Constraint::Length(1),   // Tab bar
+            Constraint::Min(10),     // Tab content
+            Constraint::Length(1),   // Status line
+            Constraint::Length(1),   // Command line
         ])
         .split(area);
 
-    // Prepare node info
-    let node_info = NodeInfo {
-        rpc_endpoint: app.rpc_endpoint.clone(),
-        node_kind: app.node_kind.clone(),
-        peer_count: app.peer_count,
-        sync_progress: app.sync_progress,
-        last_rtt_ms: app.last_rtt_ms,
-    };
+    // Tab bar
+    tabs::draw_tab_bar(f, chunks[0], app);
 
-    // Prepare activity items (last 5 blocks + last 5 txs)
-    let mut activity_items = Vec::new();
-
-    // Add recent blocks
-    for block in app.blocks.iter().rev().take(5) {
-        activity_items.push(ActivityItem {
-            kind: ActivityKind::Block(block.number),
-            display: format!("{} txs", block.tx_count),
-        });
-    }
-
-    // Add recent transactions
-    for tx in app.txs.iter().rev().take(5) {
-        activity_items.push(ActivityItem {
-            kind: ActivityKind::Transaction(tx.hash.clone()),
-            display: tx.method.clone(),
-        });
-    }
-
-    // Prepare watched addresses
-    let watched: Vec<String> = app.watched_addresses.iter().cloned().collect();
-
-    // Update context with selected activity item (for Enter key navigation)
-    if let Some(idx) = app.dashboard.selected_activity() {
-        if let Some(item) = activity_items.get(idx) {
-            use crate::core::Selected;
-            app.ctx.selected = match &item.kind {
-                ActivityKind::Block(num) => Selected::Block(*num),
-                ActivityKind::Transaction(hash) => Selected::Transaction(hash.clone()),
-            };
-        } else {
-            app.ctx.selected = crate::core::Selected::None;
+    // Tab content
+    match app.current_tab {
+        Tab::Home => tabs::draw_home_tab(f, chunks[1], app),
+        Tab::Explorer => {
+            // Use the FULL explorer UI - same as the original explorer
+            let explorer_areas = layout::areas_in_rect(chunks[1]);
+            draw_sidebar(f, explorer_areas.sidebar_sections, explorer_areas.sidebar_watch, app);
+            draw_list_panel(f, explorer_areas.list, app);
+            draw_detail_panel(f, explorer_areas.details, app);
         }
-    } else {
-        app.ctx.selected = crate::core::Selected::None;
+        Tab::Toolkit => tabs::draw_toolkit_tab(f, chunks[1], app),
+        Tab::Ops => tabs::draw_ops_tab(f, chunks[1], app),
+        Tab::Anvil => tabs::draw_anvil_tab(f, chunks[1], app),
     }
 
-    // Render dashboard with data
-    let dashboard = app.dashboard.clone();
-    dashboard.render_with_data(
-        f,
-        chunks[0],
-        Some(&node_info),
-        Some(&activity_items),
-        Some(&watched),
-    );
-
-    // Render status and command line
-    draw_status_line(f, chunks[1], app);
-    draw_command_line(f, chunks[2], app);
+    // Status and command line
+    draw_status_line(f, chunks[2], app);
+    draw_command_line(f, chunks[3], app);
 
     if app.help_open {
         draw_help_popup(f, area, app);

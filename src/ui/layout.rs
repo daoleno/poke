@@ -59,3 +59,34 @@ pub fn areas(size: Rect) -> UiAreas {
         command_line: footer_chunks[1],
     }
 }
+
+/// Create explorer layout areas within a given rect (for embedding in tabs)
+pub fn areas_in_rect(rect: Rect) -> UiAreas {
+    let main_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(22),
+            Constraint::Percentage(39),
+            Constraint::Percentage(39),
+        ])
+        .split(rect);
+
+    let sidebar_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(8), Constraint::Length(9)])
+        .split(main_chunks[0]);
+
+    UiAreas {
+        size: rect,
+        header: Rect::default(),
+        main: rect,
+        footer: Rect::default(),
+        sidebar: main_chunks[0],
+        sidebar_sections: sidebar_chunks[0],
+        sidebar_watch: sidebar_chunks[1],
+        list: main_chunks[1],
+        details: main_chunks[2],
+        status_line: Rect::default(),
+        command_line: Rect::default(),
+    }
+}
